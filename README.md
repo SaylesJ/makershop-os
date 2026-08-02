@@ -1,4 +1,4 @@
-# MakerShop OS (Whittle Woody's Edition)
+# MakerShop OS
 
 A lightweight, local-first inventory, scheduling, and project management system built specifically for makers, CNC operators, laser engravers, and 3D printing workflows.
 
