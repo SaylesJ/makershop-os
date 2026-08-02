@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block subtitle %}Customer Accounts & Financials{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    
+    <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+        <h2 class="text-xl font-bold text-slate-200 uppercase tracking-widest">Customer Profiles</h2>
+        <input type="text" id="accountSearch" onkeyup="filterAccounts()" placeholder="Search customers..." class="p-3 bg-slate-900 rounded border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-wood w-72 shadow-inner">
+    </div>
+
+    <!-- Overall Financial Summary -->
+    <div class="grid grid-cols-3 gap-6 mb-8">
+        <div class="bg-panel p-5 rounded-lg border border-slate-700 shadow-xl">
+            <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">Total Active Clients</p>
+            <p id="total-clients" class="text-2xl text-white font-bold">0</p>
+        </div>
+        <div class="bg-panel p-5 rounded-lg border border-slate-700 shadow-xl">
+            <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">Total Open Receivables</p>
+            <p id="total-open-money" class="text-2xl text-wood font-bold">$0.00</p>
+        </div>
+        <div class="bg-panel p-5 rounded-lg border border-slate-700 shadow-xl">
+            <p class="text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">Lifetime Revenue</p>
+            <p id="total-lifetime-money" class="text-2xl text-emerald-500 font-bold">$0.00</p>
+        </div>
+    </div>
+
+    <!-- Customer Cards Injected Here -->
+    <div id="accounts-container" class="space-y-6">
+        <div class="text-center p-12 text-slate-500 uppercase tracking-widest font-bold">Loading accounts...</div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.onload = function() { loadAccounts(); };
+    window.addEventListener('pageshow', function(event) { if (event.persisted) { loadAccounts(); } });
+
+    window.allInventoryItems = [];
+
+    function filterAccounts() {
+        const input = document.getElementById("accountSearch").value.toUpperCase();
+        const cards = document.querySelectorAll('.account-card');
+        cards.forEach(card => {
+            const name = card.getAttribute('data-name').toUpperCase();
+            if (name.includes(input)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    async function loadAccounts() {
+        const response = await fetch('/api/items?t=' + new Date().getTime());
+        const items = await response.json();
+        window.allInventoryItems = items;
+
+        const customerProjects = items.filter(i => i.item_type === 'Project Cut' && i.customer_name && i.customer_name.trim() !== '');
+
+        const accounts = {};
+        let grandTotalOpen = 0;
+        let grandTotalLifetime = 0;
+
+        customerProjects.forEach(p => {
+            const cust = p.customer_name.trim().toUpperCase();
+            if (!accounts[cust]) {
+                accounts[cust] = { 
+                    name: p.customer_name.trim(), 
+                    open: [], 
+                    completed: [], 
+                    totalSales: 0, 
+                    openSales: 0,
+                    shippingAddress: p.shipping_address || p.location || '' 
+                };
+            }
+            
+            if (p.shipping_address && !accounts[cust].shippingAddress) {
+                accounts[cust].shippingAddress = p.shipping_address;
+            }
+
+            const saleVal = parseFloat(p.sale_price) || 0;
+            accounts[cust].totalSales += saleVal;
+            grandTotalLifetime += saleVal;
+
+            if (p.status !== 'Completed') {
+                accounts[cust].open.push(p);
+                accounts[cust].openSales += saleVal;
+                grandTotalOpen += saleVal;
+            } else {
+                accounts[cust].completed.push(p);
+            }
+        });
+
+        const accountsArray = Object.values(accounts).sort((a,b) => a.name.localeCompare(b.name));
+
+        document.getElementById('total-clients').innerText = accountsArray.length;
+        document.getElementById('total-open-money').innerText = `$${grandTotalOpen.toFixed(2)}`;
+        document.getElementById('total-lifetime-money').innerText = `$${grandTotalLifetime.toFixed(2)}`;
+
+        const container = document.getElementById('accounts-container');
+
+        if (accountsArray.length === 0) {
+            container.innerHTML = '<div class="text-center p-12 bg-panel rounded-lg border border-slate-700 text-slate-500 uppercase tracking-widest font-bold">No customer accounts found.<br><span class="text-xs font-normal mt-2 block">Add a "Customer" to a project to generate an account.</span></div>';
+            return;
+        }
+
+        container.innerHTML = accountsArray.map(acc => {
+            let openHtml = acc.open.length > 0 
+                ? acc.open.map(p => `
+                    <div onclick="window.location.href='/project/${p.id}'" class="flex justify-between items-center bg-slate-900 p-4 rounded border border-slate-700 cursor-pointer hover:border-wood transition-colors group mb-3 shadow-sm">
+                        <div class="flex items-center gap-4">
+                            ${p.photo ? `<div class="w-16 h-12 rounded overflow-hidden border border-slate-600 flex-shrink-0"><img src="${p.photo}" class="w-full h-full object-cover"></div>` : `<div class="w-16 h-12 rounded border border-slate-700 bg-slate-800 flex items-center justify-center text-[8px] text-slate-600 font-bold uppercase flex-shrink-0">NO IMG</div>`}
+                            <div>
+                                <p class="text-white font-bold text-sm group-hover:text-wood transition-colors">${p.cnc_file || 'Unnamed Project'}</p>
+                                <p class="text-xs text-slate-500 uppercase tracking-widest mt-1 font-bold">PRJ-${p.id} | Due: <span class="${p.due_date ? 'text-slate-300' : ''}">${p.due_date || 'N/A'}</span></p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-emerald-500 font-bold text-sm">$${(parseFloat(p.sale_price)||0).toFixed(2)}</p>
+                            <p class="text-[10px] text-wood uppercase tracking-widest mt-1 font-bold">${p.status}</p>
+                        </div>
+                    </div>
+                `).join('')
+                : '<p class="text-sm text-slate-500 italic p-4 text-center border border-dashed border-slate-700 rounded mb-3">No active projects for this client.</p>';
+
+            const encodedName = encodeURIComponent(acc.name);
+            const hasAddress = acc.shippingAddress && acc.shippingAddress.trim() !== '' && acc.shippingAddress !== 'No address set';
+
+            return `
+            <div class="account-card bg-panel rounded-lg border border-slate-700 shadow-xl overflow-hidden" data-name="${acc.name}">
+                <!-- Card Header -->
+                <div class="p-5 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-slate-400 font-bold text-lg">
+                            ${acc.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-200 uppercase tracking-widest">${acc.name}</h2>
+                            <p class="text-[11px] text-slate-400 mt-0.5">
+                                Shipping: 
+                                <span class="${hasAddress ? 'text-slate-300 font-semibold cursor-pointer hover:text-emerald-400 transition-colors underline decoration-dotted' : 'text-slate-500 font-semibold'}" 
+                                      id="addr-text-${encodedName}" 
+                                      ${hasAddress ? `onclick="copyAddress(this, \`${acc.name.replace(/'/g, "\\'")}\`, \`${acc.shippingAddress.replace(/'/g, "\\'")}\`)" title="Click to copy address"` : ''}>
+                                    ${acc.shippingAddress || 'No address set'}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        ${hasAddress ? `<button onclick="openPirateShip(\`${acc.name.replace(/'/g, "\\'")}\`, \`${acc.shippingAddress.replace(/'/g, "\\'")}\`)" class="bg-blue-900 hover:bg-blue-800 border border-blue-700 text-blue-100 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors shadow" title="Copies address & opens Pirate Ship">🏴‍☠️ Pirate Ship</button>` : ''}
+                        <button onclick="toggleAddressEdit('${encodedName}')" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors">📍 Edit</button>
+                        <div class="text-right bg-slate-800 px-4 py-2 rounded border border-slate-700">
+                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Open Balance</p>
+                            <p class="text-emerald-500 font-bold text-lg">$${acc.openSales.toFixed(2)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden Address Edit Box with Live Autocomplete -->
+                <div id="addr-edit-${encodedName}" class="hidden p-4 bg-slate-950 border-b border-slate-700 relative">
+                    <div class="flex gap-3 items-center">
+                        <div class="relative flex-grow">
+                            <input type="text" id="addr-input-${encodedName}" value="${acc.shippingAddress === 'No address set' ? '' : acc.shippingAddress}" oninput="searchAddress(this, '${encodedName}')" placeholder="Start typing address for live suggestions..." class="w-full p-2.5 bg-slate-900 rounded border border-slate-700 text-white text-sm focus:outline-none focus:border-wood autocomplete-input" autocomplete="off">
+                            <div id="addr-results-${encodedName}" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded shadow-2xl z-50 max-h-48 overflow-y-auto"></div>
+                        </div>
+                        <button onclick="saveCustomerAddress('${acc.name}')" class="bg-wood hover-bg-wood border border-wood text-slate-900 px-4 py-2.5 rounded text-xs font-bold uppercase tracking-wider transition-colors flex-shrink-0">Save Address</button>
+                    </div>
+                </div>
+                
+                <!-- Active Projects List -->
+                <div class="p-6">
+                    <h3 class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest border-b border-slate-700 pb-2">Active Projects (${acc.open.length})</h3>
+                    ${openHtml}
+                    
+                    <!-- Footer Stats -->
+                    <div class="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center text-xs text-slate-500 uppercase tracking-widest font-bold">
+                        <span>Completed Projects: <span class="text-slate-300">${acc.completed.length}</span></span>
+                        <span>Lifetime Value: <span class="text-emerald-500/70">$${acc.totalSales.toFixed(2)}</span></span>
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function toggleAddressEdit(encodedName) {
+        const box = document.getElementById(`addr-edit-${encodedName}`);
+        if (box) box.classList.toggle('hidden');
+    }
+
+    function copyAddress(element, customerName, addressText) {
+        const fullBlock = `${customerName}\n${addressText}`;
+        const tempInput = document.createElement("textarea");
+        tempInput.value = fullBlock;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        
+        try {
+            document.execCommand("copy");
+            const originalText = element.innerText;
+            element.innerText = "✔️ COPIED TO CLIPBOARD!";
+            element.classList.add('text-emerald-400');
+            
+            setTimeout(() => {
+                element.innerText = originalText;
+                element.classList.remove('text-emerald-400');
+            }, 1500);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            alert("Clipboard copy failed.");
+        }
+        document.body.removeChild(tempInput);
+    }
+
+    function openPirateShip(customerName, addressText) {
+        const fullBlock = `${customerName}\n${addressText}`;
+        const tempInput = document.createElement("textarea");
+        tempInput.value = fullBlock;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        
+        try {
+            document.execCommand("copy");
+            window.open('https://www.pirateship.com/', '_blank');
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            window.open('https://www.pirateship.com/', '_blank');
+        }
+        document.body.removeChild(tempInput);
+    }
+
+    let searchTimeout = null;
+    function searchAddress(inputElement, encodedName) {
+        clearTimeout(searchTimeout);
+        const query = inputElement.value.trim();
+        const resultsContainer = document.getElementById(`addr-results-${encodedName}`);
+
+        if (query.length < 3) {
+            resultsContainer.classList.add('hidden');
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`, {
+                    headers: { 'User-Agent': 'MakerShopApp/1.0' }
+                });
+                const data = await res.json();
+
+                if (data.length > 0) {
+                    resultsContainer.innerHTML = data.map(place => `
+                        <div onclick="selectAddress('${encodedName}', \`${place.display_name.replace(/'/g, "\\'")}\`)" class="p-2.5 hover:bg-slate-800 text-xs text-slate-300 cursor-pointer border-b border-slate-800 last:border-none truncate">
+                            📍 ${place.display_name}
+                        </div>
+                    `).join('');
+                    resultsContainer.classList.remove('hidden');
+                } else {
+                    resultsContainer.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("Address lookup failed:", err);
+            }
+        }, 300);
+    }
+
+    function selectAddress(encodedName, addressString) {
+        const input = document.getElementById(`addr-input-${encodedName}`);
+        const resultsContainer = document.getElementById(`addr-results-${encodedName}`);
+        if (input) input.value = addressString;
+        if (resultsContainer) {
+            resultsContainer.classList.add('hidden');
+            resultsContainer.innerHTML = '';
+        }
+    }
+
+    window.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('autocomplete-input')) {
+            document.querySelectorAll('[id^="addr-results-"]').forEach(el => el.classList.add('hidden'));
+        }
+    });
+
+    async function saveCustomerAddress(customerName) {
+        const encodedName = encodeURIComponent(customerName);
+        const inputVal = document.getElementById(`addr-input-${encodedName}`).value.trim();
+
+        const matchingProjects = window.allInventoryItems.filter(i => i.customer_name && i.customer_name.trim().toLowerCase() === customerName.toLowerCase());
+
+        for (const p of matchingProjects) {
+            p.location = inputVal; 
+            
+            await fetch(`/api/update_item/${p.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: p.status,
+                    cnc_file: p.cnc_file,
+                    customer_name: p.customer_name,
+                    custom_lumber_id: p.custom_lumber_id,
+                    species: p.species,
+                    dimensions: p.dimensions,
+                    due_date: p.due_date,
+                    date_created: p.date_created,
+                    router_bits: p.router_bits,
+                    cost_price: p.cost_price,
+                    sale_price: p.sale_price,
+                    machine_time: p.machine_time,
+                    board_feet: p.board_feet,
+                    step_design: p.step_design,
+                    step_design_time: p.step_design_time,
+                    step_prep: p.step_prep,
+                    step_prep_time: p.step_prep_time,
+                    step_carve: p.step_carve,
+                    step_carve_time: p.step_carve_time,
+                    step_finish: p.step_finish,
+                    step_finish_time: p.step_finish_time,
+                    reference_images: p.reference_images,
+                    location: inputVal,
+                    notes: p.notes
+                })
+            });
+        }
+
+        alert("Shipping address updated successfully!");
+        loadAccounts();
+    }
+</script>
+{% endblock %}

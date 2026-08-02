@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MakerShop Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { wood: '#dc2626', panel: '#171717', base: '#0a0a0a' } } }
+        }
+    </script>
+</head>
+<body class="bg-base text-slate-200 min-h-screen p-4 font-sans">
+    <div class="max-w-md mx-auto">
+        <header class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+            <div>
+                <h1 class="text-xl font-bold uppercase tracking-widest text-slate-100">Shop <span class="text-wood">Mobile</span></h1>
+                <p class="text-xs text-slate-400">MakerShop OS</p>
+            </div>
+            <a href="/" class="bg-slate-800 border border-slate-600 text-xs font-bold uppercase px-3 py-2 rounded text-slate-300">Desktop View</a>
+        </header>
+
+        <div class="mb-4">
+            <input type="text" id="mobileSearch" onkeyup="filterMobileProjects()" placeholder="Search active projects..." class="w-full p-3 bg-panel rounded-lg border border-slate-700 text-sm text-white focus:outline-none focus:border-wood">
+        </div>
+
+        <div id="mobile-projects-list" class="flex flex-col gap-3">
+            <!-- Active projects injected here -->
+        </div>
+    </div>
+
+    <script>
+        // Automatically load fresh data anytime the page is viewed to avoid Back Button Cache issues
+        window.addEventListener('pageshow', function() { loadMobileData(); });
+
+        let allProjects = [];
+
+        async function loadMobileData() {
+            const res = await fetch('/api/items?t=' + new Date().getTime());
+            const items = await res.json();
+            
+            // Filter out completed, shipped, and inactive projects so they don't clutter the mobile view
+            allProjects = items.filter(i => i.item_type === 'Project Cut' && i.status !== 'Completed' && i.status !== 'Shipped' && i.status !== 'Inactive');
+            renderMobileList(allProjects);
+        }
+
+        function filterMobileProjects() {
+            const query = document.getElementById('mobileSearch').value.toUpperCase();
+            const filtered = allProjects.filter(p => {
+                const combined = `${p.id} ${p.cnc_file} ${p.customer_name} ${p.species}`.toUpperCase();
+                return combined.includes(query);
+            });
+            renderMobileList(filtered);
+        }
+
+        function renderMobileList(projects) {
+            const container = document.getElementById('mobile-projects-list');
+            if (projects.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-slate-500 uppercase tracking-widest text-xs">No active projects found</div>`;
+                return;
+            }
+
+            container.innerHTML = projects.map(p => {
+                const wf = p.workflow || 'Carving';
+                const wfColor = wf === 'Laser' ? 'text-purple-400 border-purple-800' : (wf === '3D Print' ? 'text-cyan-400 border-cyan-800' : (wf === 'Custom' ? 'text-blue-400 border-blue-800' : 'text-amber-500 border-amber-800'));
+                const statusBadge = p.status === 'Ready for Pickup' ? `<span class="text-[10px] font-bold px-2 py-1 rounded border text-fuchsia-400 border-fuchsia-800 bg-fuchsia-900/30 ml-2">READY FOR PICKUP</span>` : '';
+
+                return `
+                <div class="bg-panel border border-slate-700 rounded-xl p-4 shadow-lg flex flex-col gap-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-wood font-bold text-base">PRJ-${p.id}</span>
+                            <h3 class="text-white font-bold text-lg">${p.cnc_file || 'Unnamed Project'}</h3>
+                            <p class="text-blue-400 text-xs font-bold uppercase tracking-wider">${p.customer_name || 'No Customer'}</p>
+                        </div>
+                        <div class="flex items-center text-right">
+                            <span class="text-[10px] font-bold px-2 py-1 rounded border ${wfColor}">${wf}</span>
+                            ${statusBadge}
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between text-xs text-slate-400 border-t border-slate-800 pt-2">
+                        <span>Wood: <strong class="text-slate-200">${p.species || '-'}</strong></span>
+                        <span>Due: <strong class="text-wood">${p.due_date || 'None'}</strong></span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <button onclick="window.location.href='/timer/${p.id}'" class="bg-blue-900 hover:bg-blue-800 border border-blue-700 text-blue-100 py-3 rounded-lg font-bold text-xs uppercase tracking-widest text-center shadow">⏱️ Open Timer</button>
+                        <button onclick="window.location.href='/project/${p.id}'" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 py-3 rounded-lg font-bold text-xs uppercase tracking-widest text-center shadow">✏️ Edit Details</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        loadMobileData();
+    </script>
+</body>
+</html>

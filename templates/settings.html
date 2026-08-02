@@ -1,0 +1,28 @@
+<!-- Backup & Restore Section -->
+<div class="col-md-12 mt-4">
+    <div class="card shadow-sm border-info">
+        <div class="card-body">
+            <h3 class="text-info">Database Backup & Restore</h3>
+            <p class="text-muted">Download a safe copy of your shop data or restore from a previous backup file.</p>
+            
+            <div class="row">
+                <!-- Download Backup -->
+                <div class="col-md-6 mb-3">
+                    <h5>Download Backup</h5>
+                    <a href="/backup" class="btn btn-outline-primary">Download Current .db File</a>
+                </div>
+                
+                <!-- Restore Backup -->
+                <div class="col-md-6 mb-3">
+                    <h5>Restore Backup</h5>
+                    <form action="/restore" method="POST" enctype="multipart/form-data">
+                        <div class="input-group">
+                            <input type="file" name="backup_file" class="form-control" accept=".db" required>
+                            <button class="btn btn-danger" type="submit">Restore Database</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+
+{% block subtitle %}Live Session Tracker{% endblock %}
+
+{% block header %}
+<div class="absolute top-4 left-4 z-50">
+    <div class="relative" id="nav-dropdown-container">
+        <button onclick="toggleMenu()" class="bg-slate-800 border border-slate-600 px-3 py-1.5 rounded text-xs font-bold text-slate-300 uppercase tracking-wider shadow-lg">
+            ☰ Menu
+        </button>
+        <div id="nav-dropdown" class="hidden absolute left-0 mt-2 w-48 bg-slate-800 rounded border border-slate-600 shadow-2xl z-50 flex flex-col py-1 overflow-hidden">
+            <button onclick="window.location.href='/mobile'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">📱 Mobile Home</button>
+            <button onclick="window.location.href='/'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">🏠 Desktop Home</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-xl mx-auto bg-panel p-4 md:p-8 rounded-xl border border-slate-700 shadow-2xl relative overflow-hidden">
+    
+    <div class="text-center mb-6 mt-1">
+        <h1 class="text-xl md:text-3xl font-bold uppercase tracking-widest text-slate-200">Live <span class="text-wood">Timer</span></h1>
+        <p id="project-title" class="text-xs md:text-base text-slate-200 font-bold mt-2 uppercase tracking-widest">Loading Project...</p>
+    </div>
+
+    <!-- Bit Color Reference Key -->
+    <div class="mb-5 bg-slate-900 p-3 rounded-lg border border-slate-700">
+        <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2">Color Reference Key</p>
+        <div class="flex flex-wrap gap-1.5" id="timer-color-legend">
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-emerald-900/40 border-emerald-600 text-emerald-400 font-bold">1/16"</span>
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-blue-900/40 border-blue-600 text-blue-400 font-bold">1/8"</span>
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-wood/20 border-wood text-wood font-bold">1/4"</span>
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-purple-900/40 border-purple-600 text-purple-400 font-bold">1/4" 90°</span>
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-amber-900/40 border-amber-600 text-amber-500 font-bold">1/4" 60°</span>
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-cyan-900/40 border-cyan-600 text-cyan-400 font-bold">1/2"</span>
+            <span class="text-[10px] px-2 py-0.5 rounded border bg-rose-900/40 border-rose-600 text-rose-400 font-bold">Box Core</span>
+        </div>
+    </div>
+
+    <!-- Timer Display & Immediate Start/Pause Controls -->
+    <div class="bg-slate-900 rounded-lg p-5 md:p-6 border border-slate-700 text-center mb-6 shadow-inner">
+        <p class="text-[10px] md:text-xs text-slate-500 font-bold tracking-widest mb-2 uppercase">Total Project Time</p>
+        <div id="stopwatch" class="digital-clock text-5xl md:text-7xl font-bold text-white tracking-wider mb-5">00:00:00</div>
+        
+        <div class="grid grid-cols-2 gap-3">
+            <button id="btn-start" onclick="startTimer()" class="bg-blue-900 border border-blue-700 text-blue-100 py-3.5 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow">Start</button>
+            <button id="btn-pause" onclick="pauseTimer()" class="bg-slate-700 border border-slate-500 text-slate-300 py-3.5 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow" disabled>Pause</button>
+        </div>
+    </div>
+
+    <!-- Manual Time Entry Card -->
+    <div class="mb-6 bg-slate-800 p-4 rounded-lg border border-slate-700">
+        <p class="text-[10px] md:text-xs text-blue-400 font-bold mb-3 uppercase tracking-widest flex items-center gap-2">⏱️ Add Past Hours (Manual Entry)</p>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-[9px] text-slate-400 uppercase tracking-wider mb-1">Start Time</label>
+                <input id="manual-start" type="time" class="w-full p-2.5 bg-slate-900 rounded border border-slate-700 text-white text-xs font-bold">
+            </div>
+            <div>
+                <label class="block text-[9px] text-slate-400 uppercase tracking-wider mb-1">End Time</label>
+                <input id="manual-end" type="time" class="w-full p-2.5 bg-slate-900 rounded border border-slate-700 text-white text-xs font-bold">
+            </div>
+        </div>
+        <button onclick="addManualTime()" class="w-full bg-blue-900 hover:bg-blue-800 border border-blue-700 text-blue-100 py-2.5 rounded text-xs font-bold uppercase tracking-widest transition-colors shadow">Add Hours to Project</button>
+    </div>
+
+    <!-- Router Bits & Speeds Display -->
+    <div id="router-bits-display" class="mb-6 bg-slate-900 p-4 md:p-6 rounded-xl border-2 border-wood/60 shadow-2xl hidden">
+        <p class="text-xs text-wood font-extrabold mb-3 uppercase tracking-widest flex items-center gap-2">⚙️ Required Router Bits & Dial Speeds</p>
+        <div id="bits-list" class="flex flex-col gap-2.5">
+            <!-- Badges injected here dynamically -->
+        </div>
+    </div>
+
+    <!-- Active Stage Selector -->
+    <div class="mb-6 bg-slate-800 p-4 rounded-lg border border-slate-700">
+        <label class="block text-[10px] md:text-xs text-emerald-400 font-bold mb-2 uppercase tracking-widest">Currently Timing:</label>
+        <select id="active-stage-select" class="w-full p-3 bg-slate-900 rounded border border-emerald-900 text-white font-bold text-sm uppercase tracking-widest outline-none" onchange="changeActiveStage()">
+            <option value="none">General Shop Time</option>
+            <option value="design">Design Phase</option>
+            <option value="prep">Prep Work</option>
+            <option value="carve">CNC Carving</option>
+            <option value="finish">Finishing</option>
+        </select>
+    </div>
+
+    <!-- Progress Stages Checklist -->
+    <div class="mb-8">
+        <p class="text-[10px] md:text-xs text-slate-500 font-bold mb-3 uppercase tracking-widest">Mark as Complete</p>
+        <div class="flex flex-col gap-2.5">
+            <div onclick="toggleStage('design')" class="flex justify-between items-center bg-slate-800 p-3.5 rounded-lg border border-slate-700 cursor-pointer active:bg-slate-700 select-none">
+                <div class="flex items-center gap-3">
+                    <div id="check-design" class="w-5 h-5 rounded border-2 border-slate-500 flex items-center justify-center text-transparent text-xs">✔️</div>
+                    <span class="font-bold text-slate-300 text-xs uppercase tracking-wider">Design</span>
+                </div>
+                <div id="time-design" class="text-slate-500 font-mono text-xs">--</div>
+            </div>
+            <div onclick="toggleStage('prep')" class="flex justify-between items-center bg-slate-800 p-3.5 rounded-lg border border-slate-700 cursor-pointer active:bg-slate-700 select-none">
+                <div class="flex items-center gap-3">
+                    <div id="check-prep" class="w-5 h-5 rounded border-2 border-slate-500 flex items-center justify-center text-transparent text-xs">✔️</div>
+                    <span class="font-bold text-slate-300 text-xs uppercase tracking-wider">Prep Work</span>
+                </div>
+                <div id="time-prep" class="text-slate-500 font-mono text-xs">--</div>
+            </div>
+            <div onclick="toggleStage('carve')" class="flex justify-between items-center bg-slate-800 p-3.5 rounded-lg border border-slate-700 cursor-pointer active:bg-slate-700 select-none">
+                <div class="flex items-center gap-3">
+                    <div id="check-carve" class="w-5 h-5 rounded border-2 border-slate-500 flex items-center justify-center text-transparent text-xs">✔️</div>
+                    <span class="font-bold text-slate-300 text-xs uppercase tracking-wider">Carving</span>
+                </div>
+                <div id="time-carve" class="text-slate-500 font-mono text-xs">--</div>
+            </div>
+            <div onclick="toggleStage('finish')" class="flex justify-between items-center bg-slate-800 p-3.5 rounded-lg border border-slate-700 cursor-pointer active:bg-slate-700 select-none">
+                <div class="flex items-center gap-3">
+                    <div id="check-finish" class="w-5 h-5 rounded border-2 border-slate-500 flex items-center justify-center text-transparent text-xs">✔️</div>
+                    <span class="font-bold text-slate-300 text-xs uppercase tracking-wider">Finishing</span>
+                    <span id="badge-finish" class="bg-yellow-900/50 border border-yellow-800 text-yellow-500 text-[10px] px-1.5 py-0.5 rounded hidden font-bold tracking-wider">CURING</span>
+                </div>
+                <div id="time-finish" class="text-slate-500 font-mono text-xs">--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Control at the very bottom -->
+    <div class="border-t border-slate-700 pt-6">
+        <button id="btn-stop" onclick="stopAndSaveTimer()" class="w-full bg-wood border border-wood text-slate-900 py-4 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow">Save & Exit</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const projectId = {{ project_id }};
+    let totalSeconds = 0;
+    let timerInterval = null;
+    let activeStage = 'none';
+    let isRunning = false;
+
+    let stages = {
+        design: { status: 'Pending', time: 0 },
+        prep: { status: 'Pending', time: 0 },
+        carve: { status: 'Pending', time: 0 },
+        finish: { status: 'Pending', time: 0 }
+    };
+
+    function getBitBadgeClass(bitName) {
+        if (bitName.includes('1/16')) return 'bg-emerald-900/40 border-emerald-600 text-emerald-400';
+        if (bitName.includes('1/8')) return 'bg-blue-900/40 border-blue-600 text-blue-400';
+        if (bitName.includes('90-Degree')) return 'bg-purple-900/40 border-purple-600 text-purple-400';
+        if (bitName.includes('60-Degree')) return 'bg-amber-900/40 border-amber-600 text-amber-500';
+        if (bitName.includes('1/2')) return 'bg-cyan-900/40 border-cyan-600 text-cyan-400';
+        if (bitName.includes('Box Core')) return 'bg-rose-900/40 border-rose-600 text-rose-400';
+        return 'bg-wood/20 border-wood text-wood'; // Default 1/4 Inch
+    }
+
+    async function changeActiveStage() {
+        activeStage = document.getElementById('active-stage-select').value;
+        if (isRunning) {
+            await fetch(`/api/timer/start/${projectId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stage: activeStage })
+            });
+        }
+        renderStages(); 
+    }
+
+    function formatTimeDisplay(decimalHours) {
+        if (!decimalHours || isNaN(decimalHours)) return "0h 0m";
+        const h = Math.floor(decimalHours);
+        const m = Math.round((decimalHours - h) * 60);
+        return `${h}h ${m}m`;
+    }
+
+    function formatStopwatch(seconds) {
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+        const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+
+    function updateDisplays() {
+        document.getElementById('stopwatch').innerText = formatStopwatch(totalSeconds);
+    }
+
+    async function loadProjectData() {
+        const res = await fetch(`/api/item/${projectId}?t=` + new Date().getTime());
+        if (!res.ok) { alert("Project not found!"); window.location.href = '/mobile'; return; }
+        const item = await res.json();
+
+        // Updated Title Styling for better visibility
+        document.getElementById('project-title').innerHTML = `<span class="text-blue-400">PRJ-${item.id}</span> <span class="text-slate-600">|</span> <span class="text-white">${item.cnc_file || item.species}</span>`;
+        
+        totalSeconds = Math.floor((parseFloat(item.board_feet) || 0) * 3600);
+        
+        stages.design = { status: item.step_design || 'Pending', time: parseFloat(item.step_design_time) || 0 };
+        stages.prep = { status: item.step_prep || 'Pending', time: parseFloat(item.step_prep_time) || 0 };
+        stages.carve = { status: item.step_carve || 'Pending', time: parseFloat(item.step_carve_time) || 0 };
+        stages.finish = { status: item.step_finish || 'Pending', time: parseFloat(item.step_finish_time) || 0 };
+
+        if (item.timer_active_stage) {
+            activeStage = item.timer_active_stage;
+            document.getElementById('active-stage-select').value = activeStage;
+        }
+
+        const bits = item.router_bits ? item.router_bits.split(',').filter(b => b.trim() !== '') : [];
+        if (bits.length > 0) {
+            document.getElementById('router-bits-display').classList.remove('hidden');
+            
+            document.getElementById('bits-list').innerHTML = bits.map(b => {
+                let mat = "Softwood";
+                if (['Oak', 'Walnut', 'Hardwood'].includes(item.species)) mat = "Hardwood";
+                else if (['MDF', 'Plywood'].includes(item.species)) mat = "MDF";
+
+                let matrixKey = "1/4 End Mill"; 
+                if (b.includes("1/8") || b.includes("1/16")) matrixKey = "1/8 End Mill";
+                if (b.includes("1/2")) matrixKey = "1/2 End Mill";
+                if (b.includes("Degree") || b.includes("V-Bit")) matrixKey = "V-Bit";
+                if (b.includes("Box Core")) matrixKey = "Box Core";
+
+                const speedMatrix = {
+                    "1/8 End Mill": { Softwood: 4.5, Hardwood: 3.5, MDF: 5 },
+                    "1/4 End Mill": { Softwood: 3.5, Hardwood: 2.5, MDF: 4 },
+                    "1/2 End Mill": { Softwood: 1.5, Hardwood: 1, MDF: 2 },
+                    "V-Bit":        { Softwood: 3,   Hardwood: 2.5, MDF: 3.5 },
+                    "Box Core":     { Softwood: 2,   Hardwood: 1.5, MDF: 2.5 }
+                };
+                
+                const dial = speedMatrix[matrixKey][mat] || "-";
+                const badgeClass = getBitBadgeClass(b);
+
+                return `
+                <div class="flex items-center justify-between gap-3 bg-slate-950 border border-slate-700 px-4 py-2.5 rounded-lg shadow-md">
+                    <span class="border ${badgeClass} text-[11px] px-2.5 py-1 rounded font-black tracking-wider">${b}</span>
+                    <span class="text-white font-extrabold text-sm tracking-wide bg-slate-900 border border-slate-700 px-2.5 py-1 rounded">DIAL: ${dial}</span>
+                </div>`;
+            }).join('');
+        }
+
+        updateDisplays();
+        renderStages();
+
+        if (item.timer_running === 1) {
+            startLocalTicking();
+        }
+    }
+
+    function renderStages() {
+        const mapping = ['design', 'prep', 'carve'];
+        mapping.forEach(st => {
+            const checkEl = document.getElementById(`check-${st}`);
+            const timeEl = document.getElementById(`time-${st}`);
+            const stTimeStr = formatTimeDisplay(stages[st].time);
+
+            if (stages[st].status === 'Done') {
+                checkEl.className = "w-5 h-5 rounded border-2 border-emerald-700 bg-emerald-900/50 flex items-center justify-center text-emerald-500 text-xs";
+                timeEl.innerText = `DONE: ${stTimeStr}`;
+                timeEl.className = "font-mono text-xs text-emerald-500";
+            } else {
+                checkEl.className = "w-5 h-5 rounded border-2 border-slate-600 flex items-center justify-center text-transparent text-xs";
+                timeEl.innerText = `${stTimeStr}`;
+                timeEl.className = "font-mono text-xs " + (activeStage === st && isRunning ? "text-emerald-400 font-bold" : "text-slate-500");
+            }
+        });
+
+        const fSt = 'finish';
+        const fCheck = document.getElementById(`check-${fSt}`);
+        const fTime = document.getElementById(`time-${fSt}`);
+        const fBadge = document.getElementById(`badge-${fSt}`);
+        const fTimeStr = formatTimeDisplay(stages[fSt].time);
+        
+        if (stages[fSt].status === 'Done') {
+            fCheck.className = "w-5 h-5 rounded border-2 border-emerald-700 bg-emerald-900/50 flex items-center justify-center text-emerald-500 text-xs";
+            fBadge.classList.add('hidden');
+            fTime.innerText = `DONE: ${fTimeStr}`;
+            fTime.className = "font-mono text-xs text-emerald-500";
+        } else if (stages[fSt].status === 'In Progress') {
+            fCheck.className = "w-5 h-5 rounded border-2 border-yellow-700 flex items-center justify-center text-transparent text-xs";
+            fBadge.classList.remove('hidden');
+            fTime.innerText = `${fTimeStr}`;
+            fTime.className = "font-mono text-xs " + (activeStage === fSt && isRunning ? "text-emerald-400 font-bold" : "text-yellow-600");
+        } else {
+            fCheck.className = "w-5 h-5 rounded border-2 border-slate-600 flex items-center justify-center text-transparent text-xs";
+            fBadge.classList.add('hidden');
+            fTime.innerText = `${fTimeStr}`;
+            fTime.className = "font-mono text-xs " + (activeStage === fSt && isRunning ? "text-emerald-400 font-bold" : "text-slate-500");
+        }
+    }
+
+    async function toggleStage(stage) {
+        if (stage === 'finish') {
+            if (stages.finish.status === 'Pending') {
+                stages.finish.status = 'In Progress';
+            } else if (stages.finish.status === 'In Progress') {
+                stages.finish.status = 'Done';
+                if (activeStage === 'finish') {
+                    document.getElementById('active-stage-select').value = 'none';
+                    await changeActiveStage();
+                }
+            } else {
+                stages.finish.status = 'Pending';
+            }
+        } else {
+            if (stages[stage].status === 'Pending') {
+                stages[stage].status = 'Done';
+                if (activeStage === stage) {
+                    document.getElementById('active-stage-select').value = 'none';
+                    await changeActiveStage();
+                }
+            } else {
+                stages[stage].status = 'Pending';
+            }
+        }
+        renderStages();
+        await saveTimerState();
+    }
+
+    async function addManualTime() {
+        const startVal = document.getElementById('manual-start').value;
+        const endVal = document.getElementById('manual-end').value;
+        if (!startVal || !endVal) { alert("Please enter both a start and end time."); return; }
+
+        const [sHours, sMins] = startVal.split(':').map(Number);
+        const [eHours, eMins] = endVal.split(':').map(Number);
+
+        let startTotalMins = sHours * 60 + sMins;
+        let endTotalMins = eHours * 60 + eMins;
+
+        if (endTotalMins < startTotalMins) {
+            endTotalMins += 24 * 60; 
+        }
+
+        const diffMins = endTotalMins - startTotalMins;
+        if (diffMins <= 0) { alert("End time must be after start time."); return; }
+
+        const addedHours = diffMins / 60.0;
+        totalSeconds += Math.round(diffMins * 60);
+
+        if (activeStage !== 'none') {
+            stages[activeStage].time += addedHours;
+        }
+
+        updateDisplays();
+        renderStages();
+        await saveTimerState();
+
+        document.getElementById('manual-start').value = '';
+        document.getElementById('manual-end').value = '';
+        alert(`Successfully added ${diffMins} minutes (${addedHours.toFixed(2)} hours) to the project time!`);
+    }
+
+    function startLocalTicking() {
+        isRunning = true;
+        document.getElementById('btn-start').disabled = true;
+        document.getElementById('btn-start').className = "bg-slate-800 border border-slate-700 text-slate-600 py-3.5 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow";
+        
+        document.getElementById('btn-pause').disabled = false;
+        document.getElementById('btn-pause').className = "bg-yellow-900 border border-yellow-700 text-yellow-400 py-3.5 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow";
+
+        if (!timerInterval) {
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                if (activeStage !== 'none') {
+                    stages[activeStage].time += (1 / 3600);
+                }
+                updateDisplays();
+                renderStages();
+            }, 1000);
+        }
+    }
+
+    async function startTimer() {
+        startLocalTicking();
+        await fetch(`/api/timer/start/${projectId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stage: activeStage })
+        });
+    }
+
+    async function pauseTimer() {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        isRunning = false;
+        
+        const btnStart = document.getElementById('btn-start');
+        btnStart.disabled = false;
+        btnStart.innerText = "RESUME";
+        btnStart.className = "bg-blue-900 border border-blue-700 text-blue-100 py-3.5 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow";
+        
+        const btnPause = document.getElementById('btn-pause');
+        btnPause.disabled = true;
+        btnPause.className = "bg-slate-700 border border-slate-500 text-slate-300 py-3.5 rounded-lg font-bold text-xs md:text-sm uppercase tracking-widest text-center shadow";
+        renderStages();
+
+        await fetch(`/api/timer/pause/${projectId}`, { method: 'POST' });
+        await loadProjectData();
+    }
+
+    async function saveTimerState() {
+        const currentTotalHours = totalSeconds / 3600.0;
+        await fetch(`/api/update_timer_state/${projectId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                board_feet: parseFloat(currentTotalHours.toFixed(4)),
+                step_design: stages.design.status, step_design_time: parseFloat((stages.design.time).toFixed(4)),
+                step_prep: stages.prep.status, step_prep_time: parseFloat((stages.prep.time).toFixed(4)),
+                step_carve: stages.carve.status, step_carve_time: parseFloat((stages.carve.time).toFixed(4)),
+                step_finish: stages.finish.status, step_finish_time: parseFloat((stages.finish.time).toFixed(4))
+            })
+        });
+    }
+
+    async function stopAndSaveTimer() {
+        if (isRunning) {
+            await fetch(`/api/timer/pause/${projectId}`, { method: 'POST' });
+        }
+        
+        document.getElementById('btn-start').disabled = true;
+        document.getElementById('btn-pause').disabled = true;
+        document.getElementById('btn-stop').innerText = "SAVING...";
+
+        await saveTimerState();
+        window.location.href = '/mobile'; 
+    }
+
+    loadProjectData();
+</script>
+{% endblock %}

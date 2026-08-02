@@ -1,0 +1,895 @@
+{% extends "base.html" %}
+
+{% block subtitle %}Specification & Financial Editor{% endblock %}
+
+{% block action_buttons %}
+<button onclick="window.location.href='/timer/{{ project_id }}'" class="bg-slate-800 hover:bg-slate-700 border border-blue-800 text-blue-400 px-3 md:px-4 py-2 rounded text-xs md:text-sm font-bold transition-colors uppercase tracking-wider flex items-center gap-1 ml-2">⏱️ Timer</button>
+<button onclick="window.history.back()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 px-3 md:px-4 py-2 rounded text-xs md:text-sm font-bold transition-colors uppercase tracking-wider flex items-center gap-1">⬅️ Back</button>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 max-w-6xl mx-auto">
+    <div class="bg-panel p-4 md:p-5 rounded-lg flex justify-between items-center border border-slate-700 shadow-lg">
+        <div>
+            <p class="text-[10px] md:text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">TYPE / STATUS</p>
+            <p id="card-status" class="text-base md:text-xl text-emerald-500 font-bold">Loading...</p>
+        </div>
+    </div>
+    <div class="bg-panel p-4 md:p-5 rounded-lg flex justify-between items-center border border-slate-700 shadow-lg">
+        <div>
+            <p class="text-[10px] md:text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">TOTAL TIME</p>
+            <p id="card-time" class="text-base md:text-xl text-wood font-bold">0h 0m</p>
+        </div>
+    </div>
+    <div class="bg-panel p-4 md:p-5 rounded-lg flex justify-between items-center border border-slate-700 shadow-lg">
+        <div>
+            <p class="text-[10px] md:text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">COST PRICE</p>
+            <p id="card-cost" class="text-base md:text-xl text-slate-300 font-bold">$0.00</p>
+        </div>
+    </div>
+    <div class="bg-panel p-4 md:p-5 rounded-lg flex justify-between items-center border border-slate-700 shadow-lg">
+        <div>
+            <p class="text-[10px] md:text-xs text-slate-500 font-bold mb-1 tracking-widest uppercase">SALE PRICE</p>
+            <p id="card-sale" class="text-base md:text-xl text-emerald-500 font-bold">$0.00</p>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-6xl mx-auto bg-panel p-4 md:p-10 rounded-lg border border-slate-700 shadow-xl">
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-slate-700 pb-5 mb-6 gap-4">
+        <h2 id="page-title" class="text-sm md:text-xl font-bold text-slate-200 uppercase tracking-widest">Loading...</h2>
+        <button onclick="window.location.href='/media'" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 px-4 py-2 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2">🖼️ Open Media Library</button>
+    </div>
+    
+    <div id="photo-container" class="mb-8 hidden text-center">
+        <label class="block text-xs text-slate-500 mb-3 uppercase tracking-widest">Attached Photo (1" Scale)</label>
+        <div class="inline-block relative w-full max-w-[32rem] h-64 rounded overflow-hidden border border-slate-600 ruler-overlay shadow-inner">
+            <img id="project-photo" src="" class="w-full h-full object-cover">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <div class="md:col-span-2">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Project / File Name</label>
+            <input id="edit-cnc" type="text" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white font-bold text-sm">
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Customer</label>
+            <input id="edit-customer" type="text" list="customer-list" placeholder="Optional" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white font-bold text-sm">
+        </div>
+        <div class="md:col-span-4 relative">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Location / Shipping Address</label>
+            <input id="edit-location" type="text" oninput="searchAddress(this)" placeholder="Start typing address for live suggestions..." class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm autocomplete-input" autocomplete="off">
+            <div id="addr-results" class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded shadow-2xl z-50 max-h-48 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <div class="md:col-span-2">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Project Type</label>
+            <select id="edit-workflow" onchange="toggleWorkflowUI()" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-wood font-bold text-sm">
+                <option value="Carving">Carving</option>
+                <option value="Laser">Laser</option>
+                <option value="3D Print">3D Print</option>
+                <option value="Custom">Custom</option>
+            </select>
+        </div>
+        
+        <div id="edit-species-container">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Wood Species</label>
+            <select id="edit-species" onchange="updateAllSpeeds()" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white font-bold text-sm">
+                <option value="Pine">Pine</option>
+                <option value="Fir">Fir</option>
+                <option value="Cedar">Cedar</option>
+                <option value="Oak">Oak</option>
+                <option value="Walnut">Walnut</option>
+            </select>
+        </div>
+        
+        <div id="edit-filament-container" class="hidden">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Filament</label>
+            <select id="edit-filament" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-cyan-400 font-bold text-sm">
+                <option value="PLA">PLA</option>
+                <option value="PETG">PETG</option>
+                <option value="ABS">ABS</option>
+                <option value="TPU">TPU</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Status</label>
+            <select id="edit-status" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-emerald-500 font-bold text-sm">
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Ready for Pickup">Ready for Pickup</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Completed">Completed</option>
+                <option value="Shipped">Shipped</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8 border-b border-slate-700 pb-8">
+        <div id="edit-dimensions-container" class="md:col-span-2">
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Dimensions (Inches)</label>
+            <div class="flex gap-3">
+                <input id="edit-length" type="text" placeholder="L" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                <input id="edit-width" type="text" placeholder="W" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                <input id="edit-thickness" type="text" placeholder="T" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            </div>
+        </div>
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Cost ($)</label>
+            <input id="edit-cost" type="number" step="0.01" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 font-bold text-sm">
+        </div>
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Sale ($)</label>
+            <input id="edit-sale" type="number" step="0.01" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-emerald-500 font-bold text-sm">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-4 mb-8">
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Created On</label>
+            <input id="edit-date-created" type="date" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm uppercase">
+        </div>
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Due Date</label>
+            <input id="edit-due" type="date" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm uppercase">
+        </div>
+        <div>
+            <label class="block text-xs text-emerald-500 font-bold mb-2 uppercase tracking-widest">Date Sold</label>
+            <input id="edit-date-sold" type="date" class="w-full p-3 bg-slate-900 rounded border border-emerald-900 text-emerald-400 font-bold text-sm uppercase">
+        </div>
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Mach. Time</label>
+            <div class="flex gap-2 items-center bg-slate-900 rounded border border-slate-700 px-3 py-2">
+                <input id="edit-mach-hrs" type="number" min="0" class="w-full bg-transparent text-slate-300 font-bold text-right focus:outline-none text-sm"><span class="text-slate-600 text-xs mr-2">h</span>
+                <input id="edit-mach-mins" type="number" min="0" max="59" class="w-full bg-transparent text-slate-300 font-bold text-right focus:outline-none text-sm"><span class="text-slate-600 text-xs">m</span>
+            </div>
+        </div>
+        <div>
+            <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Shop Time</label>
+            <div class="flex gap-2 items-center bg-slate-900 rounded border border-slate-700 px-3 py-2">
+                <input id="edit-my-hrs" type="number" min="0" class="w-full bg-transparent text-wood font-bold text-right focus:outline-none text-sm"><span class="text-slate-600 text-xs mr-2">h</span>
+                <input id="edit-my-mins" type="number" min="0" max="59" class="w-full bg-transparent text-wood font-bold text-right focus:outline-none text-sm"><span class="text-slate-600 text-xs">m</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage Overrides -->
+    <div class="mb-8 bg-slate-800 p-4 md:p-6 rounded-lg border border-slate-700">
+        <h3 class="text-xs font-bold text-slate-400 mb-4 tracking-widest uppercase">Stage Overrides</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+            <div>
+                <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Design</label>
+                <select id="edit-st-d" class="w-full mb-2 p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 text-xs uppercase"><option value="Pending">Pending</option><option value="Done">Done</option></select>
+                <div class="flex gap-1 items-center bg-slate-900 rounded border border-slate-700 px-2 py-2">
+                    <input id="edit-st-dh" type="number" min="0" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px] mr-1">h</span>
+                    <input id="edit-st-dm" type="number" min="0" max="59" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px]">m</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Prep</label>
+                <select id="edit-st-p" class="w-full mb-2 p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 text-xs uppercase"><option value="Pending">Pending</option><option value="Done">Done</option></select>
+                <div class="flex gap-1 items-center bg-slate-900 rounded border border-slate-700 px-2 py-2">
+                    <input id="edit-st-ph" type="number" min="0" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px] mr-1">h</span>
+                    <input id="edit-st-pm" type="number" min="0" max="59" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px]">m</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Carve / Print</label>
+                <select id="edit-st-c" class="w-full mb-2 p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 text-xs uppercase"><option value="Pending">Pending</option><option value="Done">Done</option></select>
+                <div class="flex gap-1 items-center bg-slate-900 rounded border border-slate-700 px-2 py-2">
+                    <input id="edit-st-ch" type="number" min="0" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px] mr-1">h</span>
+                    <input id="edit-st-cm" type="number" min="0" max="59" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px]">m</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Finish</label>
+                <select id="edit-st-f" class="w-full mb-2 p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 text-xs uppercase"><option value="Pending">Pending</option><option value="In Progress">In Progress</option><option value="Done">Done</option></select>
+                <div class="flex gap-1 items-center bg-slate-900 rounded border border-slate-700 px-2 py-2">
+                    <input id="edit-st-fh" type="number" min="0" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px] mr-1">h</span>
+                    <input id="edit-st-fm" type="number" min="0" max="59" placeholder="0" class="w-full bg-transparent text-white text-right focus:outline-none text-sm" oninput="syncStageTimes()"><span class="text-slate-600 text-[10px]">m</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-File Reference, Artwork, Aspire, LightBurn Upload with Tagging -->
+    <div class="mb-8 border-t border-slate-700 pt-8">
+        <label class="block text-xs text-slate-500 mb-4 uppercase tracking-widest">Drawings, Reference, Artwork, Aspire (.crv) & LightBurn (.lbrn) Files</label>
+        <div id="ref-images-container" class="flex flex-wrap gap-4 mb-4">
+            <!-- Uploaded thumbnails & file cards injected here -->
+        </div>
+        <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+            <input type="file" id="ref-upload-file" accept="image/*, application/pdf, .crv, .crv3d, .lbrn, .lbrn2" class="flex-1 p-3 bg-slate-900 rounded border border-slate-700 text-slate-400 text-sm font-bold">
+            <select id="ref-upload-tag" class="flex-1 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm font-bold uppercase">
+                <option value="Reference File">Reference File</option>
+                <option value="Artwork File">Artwork File</option>
+                <option value="Aspire File (v1)">Aspire File (v1)</option>
+                <option value="Aspire File (v2)">Aspire File (v2)</option>
+                <option value="Aspire File (v3)">Aspire File (v3)</option>
+                <option value="Aspire File (Final)">Aspire File (Final)</option>
+                <option value="LightBurn File">LightBurn File</option>
+            </select>
+            <button onclick="uploadReferenceImage(event)" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 px-6 py-3 rounded text-sm font-bold uppercase tracking-wider transition-colors">Upload</button>
+            <button onclick="saveProjectChanges()" class="bg-wood hover-bg-wood border border-wood text-slate-900 px-6 py-3 rounded text-sm font-bold uppercase tracking-wider transition-colors shadow">Save</button>
+        </div>
+    </div>
+
+    <!-- Collapsible Machine Settings -->
+    <div class="mb-8 bg-slate-800 rounded-lg border border-slate-700 overflow-hidden shadow-inner">
+        <div onclick="toggleMachineSettings()" class="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-700 transition-colors select-none">
+            <div class="flex items-center gap-3">
+                <span id="machine-settings-chevron" class="text-xs text-wood font-bold transition-transform inline-block" style="transform: rotate(180deg);">▼</span>
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-widest" id="machine-settings-title">Machine Settings (Router Bits)</h3>
+            </div>
+            <span class="text-[10px] text-slate-500 uppercase tracking-widest">Click to Expand/Collapse</span>
+        </div>
+        <div id="machine-settings-content" class="p-4 md:p-6 border-t border-slate-700 bg-slate-900/50">
+            
+            <!-- Toggleable Machine Settings -->
+            <div id="router-bits-section">
+                <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Router Bits, Speeds, & Feeds</label>
+                <div class="flex flex-col gap-3" id="router-bits-editor-container">
+                    <!-- Dynamically injected rows -->
+                </div>
+            </div>
+
+            <div id="laser-settings-container" class="hidden flex-col gap-3">
+                <label class="block text-xs text-rose-500 mb-2 uppercase tracking-widest">Laser Layer Settings (Up to 4 Layers)</label>
+                <div class="flex flex-col gap-3">
+                    <script>
+                        for(let i=1; i<=4; i++) {
+                            document.write(`
+                            <div class="flex flex-col md:flex-row gap-3 bg-slate-900 p-3 rounded-lg border border-slate-700 shadow-inner">
+                                <div class="w-full md:w-1/3">
+                                    <label class="block text-[9px] text-slate-500 uppercase tracking-widest mb-1">Layer ${i} (Color/Name)</label>
+                                    <input id="laser-layer-${i}" type="text" placeholder="e.g. Black Fill" class="w-full p-2.5 bg-slate-950 rounded border border-slate-700 text-white font-bold text-sm">
+                                </div>
+                                <div class="w-full md:w-1/3">
+                                    <label class="block text-[9px] text-slate-500 uppercase tracking-widest mb-1">Speed (mm/min)</label>
+                                    <input id="laser-speed-${i}" type="text" placeholder="e.g. 3000" class="w-full p-2.5 bg-slate-950 rounded border border-slate-700 text-white font-bold text-sm">
+                                </div>
+                                <div class="w-full md:w-1/3">
+                                    <label class="block text-[9px] text-slate-500 uppercase tracking-widest mb-1">Power (%)</label>
+                                    <input id="laser-power-${i}" type="text" placeholder="e.g. 85" class="w-full p-2.5 bg-slate-950 rounded border border-slate-700 text-rose-400 font-bold text-sm">
+                                </div>
+                            </div>
+                            `);
+                        }
+                    </script>
+                </div>
+            </div>
+            
+            <div id="print-settings-container" class="hidden text-sm text-slate-400 italic py-4 text-center">
+                Machine settings hidden. Use the notes section below to store filament or profile details.
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-10">
+        <label class="block text-xs text-slate-500 mb-2 uppercase tracking-widest">Notes / Setup</label>
+        <textarea id="edit-notes" rows="4" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm leading-relaxed"></textarea>
+    </div>
+
+    <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center border-t border-slate-700 pt-8 gap-3">
+        <button onclick="window.history.back()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 px-8 py-3 rounded text-sm font-bold uppercase tracking-wider transition-colors">Cancel</button>
+        <button onclick="saveProjectChanges()" class="bg-wood hover-bg-wood border border-wood text-slate-900 px-8 py-3 rounded text-sm font-bold uppercase tracking-wider transition-colors">Save Changes</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const projectId = {{ project_id }};
+    window.refImages = [];
+
+    // Live Address Search Logic
+    let searchTimeout = null;
+    function searchAddress(inputElement) {
+        clearTimeout(searchTimeout);
+        const query = inputElement.value.trim();
+        const resultsContainer = document.getElementById('addr-results');
+
+        if (query.length < 3) {
+            resultsContainer.classList.add('hidden');
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`, {
+                    headers: { 'User-Agent': 'WhittleWoodysApp/1.0' }
+                });
+                const data = await res.json();
+
+                if (data.length > 0) {
+                    resultsContainer.innerHTML = data.map(place => `
+                        <div onclick="selectAddress(\`${place.display_name.replace(/'/g, "\\'")}\`)" class="p-2.5 hover:bg-slate-800 text-xs text-slate-300 cursor-pointer border-b border-slate-800 last:border-none truncate">
+                            📍 ${place.display_name}
+                        </div>
+                    `).join('');
+                    resultsContainer.classList.remove('hidden');
+                } else {
+                    resultsContainer.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("Address lookup failed:", err);
+            }
+        }, 300);
+    }
+
+    function selectAddress(addressString) {
+        const input = document.getElementById('edit-location');
+        const resultsContainer = document.getElementById('addr-results');
+        if (input) input.value = addressString;
+        if (resultsContainer) {
+            resultsContainer.classList.add('hidden');
+            resultsContainer.innerHTML = '';
+        }
+    }
+
+    // Close dropdown when clicking outside
+    window.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('autocomplete-input')) {
+            const resultsContainer = document.getElementById('addr-results');
+            if (resultsContainer) resultsContainer.classList.add('hidden');
+        }
+    });
+
+    // Collapsible logic for Machine Settings
+    let machineSettingsOpen = true;
+    function toggleMachineSettings() {
+        machineSettingsOpen = !machineSettingsOpen;
+        const content = document.getElementById('machine-settings-content');
+        const chevron = document.getElementById('machine-settings-chevron');
+        if (machineSettingsOpen) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    // Toggles the UI between Workflows
+    function toggleWorkflowUI() {
+        const wf = document.getElementById('edit-workflow').value;
+        const routerSection = document.getElementById('router-bits-section');
+        const laserSection = document.getElementById('laser-settings-container');
+        const printSection = document.getElementById('print-settings-container');
+        const titleEl = document.getElementById('machine-settings-title');
+        
+        const speciesContainer = document.getElementById('edit-species-container');
+        const filamentContainer = document.getElementById('edit-filament-container');
+        const dimensionsContainer = document.getElementById('edit-dimensions-container');
+        
+        if (wf === 'Laser') {
+            routerSection.classList.add('hidden');
+            printSection.classList.add('hidden');
+            laserSection.classList.remove('hidden');
+            laserSection.classList.add('flex');
+            if (titleEl) titleEl.innerText = "Machine Settings (Laser Layers)";
+            
+            speciesContainer.classList.remove('hidden');
+            filamentContainer.classList.add('hidden');
+            dimensionsContainer.classList.remove('hidden');
+        } else if (wf === '3D Print') {
+            routerSection.classList.add('hidden');
+            laserSection.classList.add('hidden');
+            laserSection.classList.remove('flex');
+            printSection.classList.remove('hidden');
+            if (titleEl) titleEl.innerText = "Machine Settings (3D Print)";
+
+            speciesContainer.classList.add('hidden');
+            filamentContainer.classList.remove('hidden');
+            dimensionsContainer.classList.add('hidden');
+        } else {
+            routerSection.classList.remove('hidden');
+            laserSection.classList.add('hidden');
+            laserSection.classList.remove('flex');
+            printSection.classList.add('hidden');
+            if (titleEl) titleEl.innerText = "Machine Settings (Router Bits)";
+
+            speciesContainer.classList.remove('hidden');
+            filamentContainer.classList.add('hidden');
+            dimensionsContainer.classList.remove('hidden');
+        }
+    }
+
+    // Speed & Feed Automatic Calculators
+    const speedMatrix = {
+        "1/8 End Mill": { Softwood: 4.5, Hardwood: 3.5, MDF: 5 },
+        "1/4 End Mill": { Softwood: 3.5, Hardwood: 2.5, MDF: 4 },
+        "1/2 End Mill": { Softwood: 1.5, Hardwood: 1, MDF: 2 },
+        "V-Bit":        { Softwood: 3,   Hardwood: 2.5, MDF: 3.5 },
+        "Box Core":     { Softwood: 2,   Hardwood: 1.5, MDF: 2.5 }
+    };
+
+    const feedMatrix = {
+        "1/8 End Mill": { Softwood: 60, Hardwood: 40, MDF: 80 },
+        "1/4 End Mill": { Softwood: 80, Hardwood: 60, MDF: 100 },
+        "1/2 End Mill": { Softwood: 100, Hardwood: 70, MDF: 120 },
+        "V-Bit":        { Softwood: 60, Hardwood: 45, MDF: 70 },
+        "Box Core":     { Softwood: 50, Hardwood: 35, MDF: 60 }
+    };
+
+    function getMaterialCategory(species) {
+        if (['Oak', 'Walnut', 'Hardwood'].includes(species)) return "Hardwood";
+        if (['MDF', 'Plywood'].includes(species)) return "MDF";
+        return "Softwood";
+    }
+
+    function getMatrixKey(bitName) {
+        if (!bitName) return null;
+        if (bitName.includes("1/8") || bitName.includes("1/16")) return "1/8 End Mill";
+        if (bitName.includes("1/2")) return "1/2 End Mill";
+        if (bitName.includes("Degree") || bitName.includes("V-Bit")) return "V-Bit";
+        if (bitName.includes("Box Core")) return "Box Core";
+        return "1/4 End Mill"; 
+    }
+
+    function getAutoDialSpeed(bitName, species) {
+        const mat = getMaterialCategory(species);
+        const key = getMatrixKey(bitName);
+        if (!key) return "";
+        return speedMatrix[key][mat] || "";
+    }
+
+    function getAutoFeedRate(bitName, species) {
+        const mat = getMaterialCategory(species);
+        const key = getMatrixKey(bitName);
+        if (!key) return "";
+        return feedMatrix[key][mat] || "";
+    }
+
+    function getBitBadgeClass(bitName) {
+        if (bitName.includes('1/16')) return 'bg-emerald-900/40 border-emerald-600 text-emerald-400';
+        if (bitName.includes('1/8')) return 'bg-blue-900/40 border-blue-600 text-blue-400';
+        if (bitName.includes('90-Degree')) return 'bg-purple-900/40 border-purple-600 text-purple-400';
+        if (bitName.includes('60-Degree')) return 'bg-amber-900/40 border-amber-600 text-amber-500';
+        if (bitName.includes('1/2')) return 'bg-cyan-900/40 border-cyan-600 text-cyan-400';
+        if (bitName.includes('Box Core')) return 'bg-rose-900/40 border-rose-600 text-rose-400';
+        return 'bg-wood/20 border-wood text-wood';
+    }
+
+    function updateBitSelectColor(selectEl) {
+        const val = selectEl.value;
+        selectEl.className = "w-full p-3 rounded border text-sm font-bold uppercase " + (val ? getBitBadgeClass(val) : "bg-slate-900 border-slate-700 text-slate-300");
+    }
+
+    function handleBitChange(selectEl, index) {
+        updateBitSelectColor(selectEl);
+        
+        const bitVal = selectEl.value;
+        const species = document.getElementById('edit-species').value || 'Pine';
+        const dialInput = document.getElementById(`edit-dial-${index}`);
+        const feedInput = document.getElementById(`edit-feed-${index}`);
+        
+        if (bitVal) {
+            dialInput.value = getAutoDialSpeed(bitVal, species);
+            feedInput.value = getAutoFeedRate(bitVal, species);
+        } else {
+            dialInput.value = '';
+            feedInput.value = '';
+        }
+    }
+
+    function updateAllSpeeds() {
+        const species = document.getElementById('edit-species').value || 'Pine';
+        for(let i=1; i<=4; i++) {
+            const bitVal = document.getElementById(`edit-bit-${i}`).value;
+            if(bitVal) {
+                document.getElementById(`edit-dial-${i}`).value = getAutoDialSpeed(bitVal, species);
+                document.getElementById(`edit-feed-${i}`).value = getAutoFeedRate(bitVal, species);
+            }
+        }
+    }
+
+    function renderBitEditorRows(existingBitsData = []) {
+        const container = document.getElementById('router-bits-editor-container');
+        let html = '';
+        for (let i = 1; i <= 4; i++) {
+            const currentBitData = existingBitsData[i-1] || { bit: '', dial: '', feed: '' };
+            html += `
+            <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <div class="w-full md:w-2/5">
+                    <label class="block text-[9px] text-slate-500 uppercase tracking-widest mb-1">Bit ${i}</label>
+                    <select id="edit-bit-${i}" onchange="handleBitChange(this, ${i})" class="w-full p-3 rounded border text-sm font-bold uppercase bg-slate-900 border-slate-700 text-slate-300">
+                        <option value="">Select Bit...</option>
+                        <option value="1/16 Inch">1/16"</option>
+                        <option value="1/8 Inch">1/8"</option>
+                        <option value="1/4 Inch">1/4"</option>
+                        <option value="1/4 90-Degree">1/4" 90°</option>
+                        <option value="1/4 60-Degree">1/4" 60°</option>
+                        <option value="1/2 Inch">1/2"</option>
+                        <option value="Box Core">Box Core</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-1/3">
+                    <label class="block text-[9px] text-slate-500 uppercase tracking-widest mb-1">Dial Speed (RPM)</label>
+                    <input id="edit-dial-${i}" type="text" value="${currentBitData.dial || ''}" placeholder="e.g. 3.5" class="w-full p-3 bg-slate-950 rounded border border-slate-700 text-emerald-400 font-bold text-sm">
+                </div>
+                <div class="w-full md:w-1/3">
+                    <label class="block text-[9px] text-slate-500 uppercase tracking-widest mb-1">Feed Rate (IPM)</label>
+                    <input id="edit-feed-${i}" type="text" value="${currentBitData.feed || ''}" placeholder="e.g. 80" class="w-full p-3 bg-slate-950 rounded border border-slate-700 text-blue-400 font-bold text-sm">
+                </div>
+            </div>`;
+        }
+        container.innerHTML = html;
+
+        for (let i = 1; i <= 4; i++) {
+            const data = existingBitsData[i-1];
+            if (data && data.bit) {
+                const el = document.getElementById(`edit-bit-${i}`);
+                el.value = data.bit;
+                updateBitSelectColor(el);
+            }
+        }
+    }
+
+    function formatTime(decimalHours) {
+        if (!decimalHours || isNaN(decimalHours)) return "0h 0m";
+        const h = Math.floor(decimalHours);
+        const m = Math.round((decimalHours - h) * 60);
+        return `${h}h ${m}m`;
+    }
+
+    async function loadProjectData() {
+        fetch('/api/items').then(r => r.json()).then(items => {
+            const customers = [...new Set(items.map(i => i.customer_name).filter(n => n && n.trim() !== ''))].sort();
+            let datalist = document.getElementById('customer-list');
+            if (!datalist) {
+                datalist = document.createElement('datalist');
+                datalist.id = 'customer-list';
+                document.body.appendChild(datalist);
+            }
+            datalist.innerHTML = customers.map(c => `<option value="${c}">`).join('');
+        });
+
+        const res = await fetch(`/api/item/${projectId}?t=` + new Date().getTime());
+        if (!res.ok) { alert("Item not found!"); window.history.back(); return; }
+        const item = await res.json();
+
+        const displayId = item.item_type === 'Stock' && item.custom_lumber_id ? `${item.custom_lumber_id} (LMB-${item.id})` : (item.item_type === 'Stock' ? `LMB-${item.id}` : `PRJ-${item.id}`);
+        let titleString = displayId;
+        if (item.customer_name) { titleString += ` | <span class="text-blue-400">${item.customer_name}</span>`; }
+        if (item.cnc_file || item.species) { titleString += ` | <span class="text-wood">${item.cnc_file || item.species}</span>`; }
+        
+        document.getElementById('page-title').innerHTML = titleString;
+        document.getElementById('card-status').innerText = item.status || 'Unknown';
+        
+        const totalHours = (parseFloat(item.machine_time) || 0) + (parseFloat(item.board_feet) || 0);
+        document.getElementById('card-time').innerText = formatTime(totalHours);
+        document.getElementById('card-cost').innerText = `$${(parseFloat(item.cost_price) || 0).toFixed(2)}`;
+        document.getElementById('card-sale').innerText = `$${(parseFloat(item.sale_price) || 0).toFixed(2)}`;
+
+        document.getElementById('edit-cnc').value = item.cnc_file || '';
+        document.getElementById('edit-customer').value = item.customer_name || '';
+        document.getElementById('edit-workflow').value = item.workflow || 'Carving';
+        
+        // Handle Species vs Filament
+        if (['PLA', 'PETG', 'ABS', 'TPU'].includes(item.species)) {
+            document.getElementById('edit-filament').value = item.species;
+        } else {
+            document.getElementById('edit-species').value = item.species || 'Pine';
+        }
+
+        document.getElementById('edit-status').value = item.status || 'Pending';
+        
+        let l = "", w = "", t = "";
+        if (item.dimensions) {
+            let parts = item.dimensions.split(/[xX*]/).map(s => s.trim());
+            if (parts.length > 0) l = parts[0] || "";
+            if (parts.length > 1) w = parts[1] || "";
+            if (parts.length > 2) t = parts[2] || "";
+        }
+        document.getElementById('edit-length').value = l;
+        document.getElementById('edit-width').value = w;
+        document.getElementById('edit-thickness').value = t;
+
+        document.getElementById('edit-date-created').value = item.date_created || '';
+        document.getElementById('edit-due').value = item.due_date || '';
+        document.getElementById('edit-date-sold').value = item.date_sold || '';
+
+        document.getElementById('edit-cost').value = parseFloat(item.cost_price) || 0.0;
+        document.getElementById('edit-sale').value = parseFloat(item.sale_price) || 0.0;
+        
+        const machTime = parseFloat(item.machine_time) || 0;
+        document.getElementById('edit-mach-hrs').value = Math.floor(machTime);
+        document.getElementById('edit-mach-mins').value = Math.round((machTime - Math.floor(machTime)) * 60);
+
+        const myTime = parseFloat(item.board_feet) || 0;
+        document.getElementById('edit-my-hrs').value = Math.floor(myTime);
+        document.getElementById('edit-my-mins').value = Math.round((myTime - Math.floor(myTime)) * 60);
+
+        const dt = parseFloat(item.step_design_time) || 0;
+        document.getElementById('edit-st-d').value = item.step_design || 'Pending';
+        document.getElementById('edit-st-dh').value = Math.floor(dt);
+        document.getElementById('edit-st-dm').value = Math.round((dt - Math.floor(dt)) * 60);
+
+        const pt = parseFloat(item.step_prep_time) || 0;
+        document.getElementById('edit-st-p').value = item.step_prep || 'Pending';
+        document.getElementById('edit-st-ph').value = Math.floor(pt);
+        document.getElementById('edit-st-pm').value = Math.round((pt - Math.floor(pt)) * 60);
+
+        const ct = parseFloat(item.step_carve_time) || 0;
+        document.getElementById('edit-st-c').value = item.step_carve || 'Pending';
+        document.getElementById('edit-st-ch').value = Math.floor(ct);
+        document.getElementById('edit-st-cm').value = Math.round((ct - Math.floor(ct)) * 60);
+
+        const ft = parseFloat(item.step_finish_time) || 0;
+        document.getElementById('edit-st-f').value = item.step_finish || 'Pending';
+        document.getElementById('edit-st-fh').value = Math.floor(ft);
+        document.getElementById('edit-st-fm').value = Math.round((ft - Math.floor(ft)) * 60);
+
+        document.getElementById('edit-location').value = item.location || '';
+        document.getElementById('edit-notes').value = item.notes || '';
+
+        let parsedBits = [];
+        let laserLayers = [];
+        
+        if (item.router_bits) {
+            item.router_bits.split(',').forEach(entry => {
+                if (entry.startsWith('LaserLayer|')) {
+                    const parts = entry.split('|');
+                    laserLayers.push({ layer: parts[1] || '', speed: parts[2] || '', power: parts[3] || '' });
+                }
+                else if (entry.startsWith('Laser|')) {
+                    const parts = entry.split('|');
+                    laserLayers.push({ layer: 'Layer 1', speed: parts[1] || '', power: parts[2] || '' });
+                }
+                else if (entry.includes('|')) {
+                    const parts = entry.split('|');
+                    parsedBits.push({ bit: parts[0], dial: parts[1], feed: parts[2] });
+                } else if (entry.trim() !== '') {
+                    parsedBits.push({ bit: entry.trim(), dial: '', feed: '' });
+                }
+            });
+        }
+        
+        for(let i=1; i<=4; i++) {
+            const data = laserLayers[i-1] || { layer: '', speed: '', power: '' };
+            if(document.getElementById(`laser-layer-${i}`)) {
+                document.getElementById(`laser-layer-${i}`).value = data.layer;
+                document.getElementById(`laser-speed-${i}`).value = data.speed;
+                document.getElementById(`laser-power-${i}`).value = data.power;
+            }
+        }
+
+        renderBitEditorRows(parsedBits);
+        toggleWorkflowUI(); 
+
+        window.refImages = [];
+        if (item.reference_images) {
+            item.reference_images.split(',').filter(i => i.trim() !== '').forEach(entry => {
+                if (entry.includes('|')) {
+                    const parts = entry.split('|');
+                    window.refImages.push({ url: parts[0], tag: parts[1] });
+                } else {
+                    window.refImages.push({ url: entry, tag: 'Reference File' });
+                }
+            });
+        }
+        renderRefImages();
+
+        let photoUrl = item.photo;
+        if (!photoUrl && item.notes && item.notes.includes('[Photo: /')) {
+            photoUrl = item.notes.split('[Photo: ')[1].split(']')[0];
+        }
+        if (photoUrl) {
+            document.getElementById('project-photo').src = photoUrl;
+            document.getElementById('photo-container').style.display = 'block';
+        }
+    }
+
+    function renderRefImages() {
+        const container = document.getElementById('ref-images-container');
+        container.innerHTML = window.refImages.map((item, index) => {
+            const urlLower = item.url.toLowerCase();
+            const isPdf = urlLower.endsWith('.pdf');
+            const isAspire = urlLower.endsWith('.crv') || urlLower.endsWith('.crv3d');
+            const isLightburn = urlLower.endsWith('.lbrn') || urlLower.endsWith('.lbrn2');
+            
+            let preview = '';
+            if (isAspire) {
+                preview = `<div class="w-full h-32 flex flex-col items-center justify-center bg-slate-900 text-amber-500 font-bold text-xs uppercase border border-amber-800"><span class="text-3xl mb-1">⚙️</span>ASPIRE 9.5</div>`;
+            } else if (isLightburn) {
+                preview = `<div class="w-full h-32 flex flex-col items-center justify-center bg-slate-900 text-rose-500 font-bold text-xs uppercase border border-rose-800"><span class="text-3xl mb-1">🔥</span>LIGHTBURN</div>`;
+            } else if (isPdf) {
+                preview = `<div class="w-full h-32 flex flex-col items-center justify-center bg-slate-800 text-wood font-bold text-xs uppercase border border-slate-600"><span class="text-3xl mb-1">📄</span>PDF DOC</div>`;
+            } else {
+                preview = `<img src="${item.url}" class="w-full h-32 object-cover hover:opacity-75 transition-opacity">`;
+            }
+            
+            let tagColor = 'bg-blue-900/80 text-blue-300 border-blue-700';
+            if (item.tag === 'Artwork File') tagColor = 'bg-purple-900/80 text-purple-300 border-purple-700';
+            if (item.tag.includes('Aspire')) tagColor = 'bg-amber-900/80 text-amber-300 border-amber-700';
+            if (item.tag === 'LightBurn File') tagColor = 'bg-rose-900/80 text-rose-300 border-rose-700';
+
+            return `
+            <div class="relative w-36 bg-slate-900 rounded overflow-hidden border border-slate-600 shadow-inner group flex flex-col justify-between">
+                <a href="${item.url}" download target="_blank" class="block relative w-full h-32">
+                    ${preview}
+                </a>
+                <div class="p-1.5 bg-slate-950 text-center border-t border-slate-700">
+                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border inline-block truncate max-w-full ${tagColor}">${item.tag}</span>
+                </div>
+                <button onclick="removeRefImage(${index})" class="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white rounded w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity z-10">X</button>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function removeRefImage(index) {
+        window.refImages.splice(index, 1);
+        renderRefImages();
+    }
+
+    async function uploadReferenceImage(event) {
+        const fileInput = document.getElementById('ref-upload-file');
+        const tagSelect = document.getElementById('ref-upload-tag').value;
+        if (!fileInput.files || !fileInput.files[0]) { alert("Please select a file first."); return; }
+        
+        const fileObj = fileInput.files[0];
+        const btn = event.target;
+        btn.innerText = "UPLOADING...";
+        btn.disabled = true;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) { 
+            const res = await fetch('/api/upload_image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ photo: e.target.result, filename: fileObj.name })
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.refImages.push({ url: data.url, tag: tagSelect });
+                renderRefImages();
+                fileInput.value = '';
+            } else {
+                alert("Upload failed.");
+            }
+            btn.innerText = "UPLOAD FILE";
+            btn.disabled = false;
+        };
+        reader.readAsDataURL(fileObj);
+    }
+
+    function syncStageTimes() {
+        const dh = parseFloat(document.getElementById('edit-st-dh').value) || 0;
+        const dm = parseFloat(document.getElementById('edit-st-dm').value) || 0;
+        const ph = parseFloat(document.getElementById('edit-st-ph').value) || 0;
+        const pm = parseFloat(document.getElementById('edit-st-pm').value) || 0;
+        const ch = parseFloat(document.getElementById('edit-st-ch').value) || 0;
+        const cm = parseFloat(document.getElementById('edit-st-cm').value) || 0;
+        const fh = parseFloat(document.getElementById('edit-st-fh').value) || 0;
+        const fm = parseFloat(document.getElementById('edit-st-fm').value) || 0;
+
+        const sumT = dh + (dm / 60) + ph + (pm / 60) + ch + (cm / 60) + fh + (fm / 60);
+        
+        const currentMyHrs = parseFloat(document.getElementById('edit-my-hrs').value) || 0;
+        const currentMyMins = parseFloat(document.getElementById('edit-my-mins').value) || 0;
+        const currentTotal = currentMyHrs + (currentMyMins / 60);
+
+        if (sumT > currentTotal) {
+            document.getElementById('edit-my-hrs').value = Math.floor(sumT);
+            document.getElementById('edit-my-mins').value = Math.round((sumT - Math.floor(sumT)) * 60);
+        }
+    }
+
+    async function saveProjectChanges() {
+        const machHrs = parseFloat(document.getElementById('edit-mach-hrs').value) || 0;
+        const machMins = parseFloat(document.getElementById('edit-mach-mins').value) || 0;
+        
+        let myHrs = parseFloat(document.getElementById('edit-my-hrs').value) || 0;
+        let myMins = parseFloat(document.getElementById('edit-my-mins').value) || 0;
+        let myTotalTime = myHrs + (myMins / 60.0);
+
+        const dh = parseFloat(document.getElementById('edit-st-dh').value) || 0;
+        const dm = parseFloat(document.getElementById('edit-st-dm').value) || 0;
+        const st_dt = dh + (dm / 60);
+
+        const ph = parseFloat(document.getElementById('edit-st-ph').value) || 0;
+        const pm = parseFloat(document.getElementById('edit-st-pm').value) || 0;
+        const st_pt = ph + (pm / 60);
+
+        const ch = parseFloat(document.getElementById('edit-st-ch').value) || 0;
+        const cm = parseFloat(document.getElementById('edit-st-cm').value) || 0;
+        const st_ct = ch + (cm / 60);
+
+        const fh = parseFloat(document.getElementById('edit-st-fh').value) || 0;
+        const fm = parseFloat(document.getElementById('edit-st-fm').value) || 0;
+        const st_ft = fh + (fm / 60);
+
+        const sumT = st_dt + st_pt + st_ct + st_ft;
+        
+        if (sumT > myTotalTime) { myTotalTime = sumT; }
+
+        const wf = document.getElementById('edit-workflow').value;
+        const is3D = (wf === '3D Print');
+
+        const len = is3D ? "0" : (document.getElementById('edit-length').value || "0");
+        const wid = is3D ? "0" : (document.getElementById('edit-width').value || "0");
+        const thk = is3D ? "0" : (document.getElementById('edit-thickness').value || "0");
+        const species = is3D ? document.getElementById('edit-filament').value : document.getElementById('edit-species').value;
+
+        let serializedBits = [];
+        
+        if (wf === 'Laser') {
+            for(let i=1; i<=4; i++) {
+                const l = document.getElementById(`laser-layer-${i}`).value;
+                const s = document.getElementById(`laser-speed-${i}`).value;
+                const p = document.getElementById(`laser-power-${i}`).value;
+                if (l || s || p) {
+                    serializedBits.push(`LaserLayer|${l}|${s}|${p}`);
+                }
+            }
+        } else if (!is3D) {
+            for(let i=1; i<=4; i++) {
+                const b = document.getElementById(`edit-bit-${i}`).value;
+                const d = document.getElementById(`edit-dial-${i}`).value;
+                const f = document.getElementById(`edit-feed-${i}`).value;
+                if (b) {
+                    serializedBits.push(`${b}|${d}|${f}`);
+                }
+            }
+        }
+
+        const serializedRefs = window.refImages.map(item => `${item.url}|${item.tag}`).join(',');
+
+        const data = {
+            status: document.getElementById('edit-status').value,
+            workflow: wf,
+            cnc_file: document.getElementById('edit-cnc').value,
+            customer_name: document.getElementById('edit-customer').value,
+            custom_lumber_id: document.getElementById('edit-custom-id') ? document.getElementById('edit-custom-id').value : '',
+            species: species,
+            dimensions: `${len} x ${wid} x ${thk}`,
+            due_date: document.getElementById('edit-due').value || '',
+            date_created: document.getElementById('edit-date-created').value || '',
+            date_sold: document.getElementById('edit-date-sold').value || '',
+            router_bits: serializedBits.join(','),
+            cost_price: parseFloat(document.getElementById('edit-cost').value) || 0,
+            sale_price: parseFloat(document.getElementById('edit-sale').value) || 0,
+            machine_time: machHrs + (machMins / 60.0),
+            board_feet: parseFloat(myTotalTime.toFixed(4)), 
+            step_design: document.getElementById('edit-st-d').value,
+            step_design_time: st_dt,
+            step_prep: document.getElementById('edit-st-p').value,
+            step_prep_time: st_pt,
+            step_carve: document.getElementById('edit-st-c').value,
+            step_carve_time: st_ct,
+            step_finish: document.getElementById('edit-st-f').value,
+            step_finish_time: st_ft,
+            reference_images: serializedRefs,
+            location: document.getElementById('edit-location').value,
+            notes: document.getElementById('edit-notes').value
+        };
+
+        try {
+            const res = await fetch(`/api/update_item/${projectId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) { 
+                alert("Item updated successfully!"); 
+                loadProjectData(); 
+            } else { 
+                const text = await res.text();
+                alert("DATABASE ERROR: " + text); 
+            }
+        } catch (err) {
+            alert("Network error: Could not reach the server.");
+        }
+    }
+
+    loadProjectData();
+</script>
+{% endblock %}

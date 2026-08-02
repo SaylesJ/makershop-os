@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MakerShop OS{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    colors: { 
+                        wood: '#dc2626', 
+                        panel: '#171717', 
+                        base: '#0a0a0a', 
+                        slate: {
+                            50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5', 300: '#d4d4d4', 400: '#a3a3a3',
+                            500: '#737373', 600: '#525252', 700: '#404040', 800: '#262626', 900: '#171717', 950: '#0a0a0a',
+                        }
+                    } 
+                } 
+            }
+        }
+        
+        function setTextScale(size) {
+            document.documentElement.style.fontSize = size;
+            localStorage.setItem('makerTextScale', size);
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedSize = localStorage.getItem('makerTextScale') || '18px';
+            setTextScale(savedSize);
+        });
+    </script>
+</head>
+<body class="min-h-screen p-2 md:p-6 font-sans relative">
+    
+    <div class="w-full md:w-[95%] max-w-[2400px] mx-auto">
+        {% block header %}
+        <!-- Desktop Header / Banner -->
+        <header class="hidden md:flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+            <div onclick="window.location.href='/'" class="flex items-center gap-4 cursor-pointer group">
+                <div class="w-12 h-12 bg-slate-900 border border-wood rounded-lg flex items-center justify-center text-wood shadow-lg group-hover:border-white transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold uppercase tracking-widest text-slate-200 group-hover:text-white transition-colors">MakerShop <span class="text-wood">OS</span></h1>
+                    <p class="text-xs text-slate-400 tracking-wider">{% block subtitle %}Inventory & Stock Tracker{% endblock %}</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-4 items-center">
+                <div class="flex items-center gap-1 border-r border-slate-700 pr-4">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest mr-2">Size:</span>
+                    <button onclick="setTextScale('14px')" class="bg-slate-900 border border-slate-600 px-3 py-1.5 rounded text-slate-300 hover:text-white hover:border-wood transition-colors text-sm font-bold">A</button>
+                    <button onclick="setTextScale('18px')" class="bg-slate-900 border border-slate-600 px-3 py-1.5 rounded text-slate-300 hover:text-white hover:border-wood transition-colors text-base font-bold">A</button>
+                    <button onclick="setTextScale('22px')" class="bg-slate-900 border border-slate-600 px-3 py-1.5 rounded text-slate-300 hover:text-white hover:border-wood transition-colors text-lg font-bold">A</button>
+                </div>
+
+                <div class="relative" id="nav-dropdown-container">
+                    <button onclick="toggleMenu()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded text-sm font-bold text-white transition-colors uppercase tracking-wider flex items-center gap-2">
+                        ☰ Menu
+                    </button>
+                    <div id="nav-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-slate-800 rounded border border-slate-600 shadow-2xl z-50 flex flex-col py-1 overflow-hidden">
+                        {% block dropdown_items %}
+                        <button onclick="window.location.href='/'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-white transition-colors uppercase tracking-wider flex items-center gap-2">🏠 Dashboard</button>
+                        <button onclick="window.location.href='/pos'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-emerald-400 transition-colors uppercase tracking-wider flex items-center gap-2 border-b border-slate-700">🛒 POS Terminal</button>
+                        <button onclick="window.location.href='/mobile'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-white transition-colors uppercase tracking-wider flex items-center gap-2">📱 Mobile Home</button>
+                        <button onclick="window.location.href='/media'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">🖼️ Media Library</button>
+                        <button onclick="window.location.href='/schedule'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">📅 Schedule</button>
+                        <button onclick="window.location.href='/accounts'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">💰 Accounts</button>
+                        <button onclick="window.location.href='/reference'" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">📐 Reference</button>
+                        <button onclick="openModal('stock-modal')" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2 border-t border-slate-700">🌲 Lumber Inventory</button>
+                        {% endblock %}
+                    </div>
+                </div>
+                
+                {% block action_buttons %}
+                <button onclick="openModal('stock-modal')" class="bg-slate-800 hover:bg-slate-700 border border-blue-600 text-blue-400 px-4 py-2 rounded text-sm font-bold transition-colors uppercase tracking-wider flex items-center gap-1 ml-2">➕ Lumber</button>
+                <button onclick="openModal('project-modal')" class="bg-wood hover-bg-wood border border-wood text-white px-4 py-2 rounded text-sm font-bold transition-colors uppercase tracking-wider flex items-center gap-1">➕ Project</button>
+                {% endblock %}
+            </div>
+        </header>
+
+        <!-- Mobile Header -->
+        <header class="flex md:hidden justify-between items-center mb-4 bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-md">
+            <button onclick="window.location.href='/mobile'" class="text-xs font-bold text-slate-300 uppercase tracking-wider bg-slate-800 px-3 py-2 rounded border border-slate-700">📱 Mobile Home</button>
+            <span class="text-xs font-bold text-wood uppercase tracking-widest">Shop Mode</span>
+            <button onclick="toggleMenuMobile()" class="text-xs font-bold text-white uppercase tracking-wider bg-slate-800 px-3 py-2 rounded border border-slate-700">☰ Menu</button>
+        </header>
+        <div id="mobile-dropdown" class="hidden md:hidden mb-4 bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-2 shadow-xl">
+            <button onclick="window.location.href='/pos'" class="text-left px-3 py-2 bg-emerald-900/50 text-emerald-400 border border-emerald-800 rounded text-xs font-bold uppercase tracking-wider">🛒 POS Terminal</button>
+            <button onclick="window.location.href='/mobile'" class="text-left px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider">Mobile Home</button>
+            <button onclick="window.location.href='/media'" class="text-left px-3 py-2 bg-slate-800 text-slate-200 rounded text-xs font-bold uppercase tracking-wider">Media Library</button>
+            <button onclick="window.location.href='/'" class="text-left px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider">Desktop Dashboard</button>
+            <button onclick="window.location.href='/schedule'" class="text-left px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider">Schedule</button>
+            <button onclick="window.location.href='/accounts'" class="text-left px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider">Accounts</button>
+            <button onclick="window.location.href='/reference'" class="text-left px-3 py-2 bg-slate-800 text-white rounded text-xs font-bold uppercase tracking-wider">Reference</button>
+        </div>
+        {% endblock %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        function toggleMenu() {
+            const dropdown = document.getElementById('nav-dropdown');
+            if (dropdown) dropdown.classList.toggle('hidden');
+        }
+        function toggleMenuMobile() {
+            const mdropdown = document.getElementById('mobile-dropdown');
+            if (mdropdown) mdropdown.classList.toggle('hidden');
+        }
+        window.addEventListener('click', function(e) {
+            const container = document.getElementById('nav-dropdown-container');
+            if (container && !container.contains(e.target)) {
+                const dropdown = document.getElementById('nav-dropdown');
+                if(dropdown && !dropdown.classList.contains('hidden')) {
+                    dropdown.classList.add('hidden');
+                }
+            }
+            document.querySelectorAll('[id^="row-menu-"]').forEach(el => {
+                if (!el.classList.contains('hidden')) el.classList.add('hidden');
+            });
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

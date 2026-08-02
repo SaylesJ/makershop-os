@@ -1,0 +1,900 @@
+{% extends "base.html" %}
+
+{% block subtitle %}System Dashboard{% endblock %}
+
+{% block dropdown_items %}
+{{ super() }}
+<button onclick="exportToCSV()" class="text-left px-4 py-3 hover:bg-slate-700 text-sm font-bold text-slate-400 transition-colors uppercase tracking-wider flex items-center gap-2 border-t border-slate-700">📄 Export CSV</button>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-6 mb-8">
+    
+    <!-- LEFT SIDEBAR: Controls & Stats -->
+    <div class="w-full lg:w-1/4 flex flex-col gap-6">
+        
+        <!-- Navigation Tabs Vertical -->
+        <div class="bg-panel p-5 rounded-xl border border-slate-700 shadow-2xl flex flex-col gap-3">
+            <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-700 pb-2 mb-1 flex items-center gap-2">👁️ Workspace Views</h3>
+            <button id="tab-btn-projects" onclick="switchTab('projects')" class="w-full text-left px-4 py-3 rounded-lg font-bold text-sm uppercase tracking-wider border transition-colors bg-wood border-wood text-slate-900 shadow-lg flex items-center justify-between">
+                <span>Active Projects</span>
+                <span class="text-lg">🔨</span>
+            </button>
+            <button id="tab-btn-lumber" onclick="switchTab('lumber')" class="w-full text-left px-4 py-3 rounded-lg font-bold text-sm uppercase tracking-wider border transition-colors bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 flex items-center justify-between">
+                <span>Lumber Inventory</span>
+                <span class="text-lg">🌲</span>
+            </button>
+        </div>
+
+        <!-- Stats Panel Vertical -->
+        <div class="bg-panel p-5 rounded-xl border border-slate-700 shadow-2xl flex flex-col gap-4">
+            <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-700 pb-2 flex items-center gap-2">📊 At a Glance</h3>
+            
+            <div onclick="window.location.href='/schedule'" class="bg-slate-900 p-4 rounded-lg flex flex-col gap-1 border border-slate-700 cursor-pointer hover:border-wood transition-colors shadow-inner">
+                <p class="text-[10px] text-slate-400 font-bold tracking-widest uppercase">ACTIVE PROJECTS</p>
+                <p id="active-cnc" class="text-2xl text-wood font-bold">0 Active</p>
+            </div>
+
+            <div onclick="window.location.href='/schedule'" class="bg-slate-900 p-4 rounded-lg flex flex-col gap-1 border border-slate-700 cursor-pointer hover:border-wood transition-colors shadow-inner">
+                <p class="text-[10px] text-slate-400 font-bold tracking-widest uppercase">ACTIVE WORKLOAD</p>
+                <p id="total-workload" class="text-2xl text-wood font-bold">0h 0m</p>
+            </div>
+            
+            <div class="bg-emerald-950/30 p-4 rounded-lg flex flex-col gap-1 border border-emerald-900 shadow-inner">
+                <p class="text-[10px] text-slate-400 font-bold tracking-widest uppercase">COMPLETED STATS</p>
+                <p id="completed-stats" class="text-lg text-emerald-500 font-bold">0 Projects | 0h 0m</p>
+            </div>
+
+            <div onclick="switchTab('lumber')" class="bg-blue-950/30 p-4 rounded-lg flex flex-col gap-1 border border-blue-900 cursor-pointer hover:border-blue-500 transition-colors shadow-inner">
+                <p class="text-[10px] text-slate-400 font-bold tracking-widest uppercase">TOTAL LUMBER</p>
+                <p id="total-count" class="text-lg text-blue-400 font-bold">0 Boards</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT MAIN AREA: Data Tables -->
+    <div class="w-full lg:w-3/4 flex flex-col gap-6">
+        
+        <!-- Main Active Table -->
+        <div class="bg-panel rounded-xl border border-slate-700 shadow-2xl flex flex-col flex-grow">
+            <div class="p-5 flex flex-col md:flex-row justify-between items-stretch md:items-center border-b border-slate-700 bg-slate-900 rounded-t-xl gap-4">
+                <h2 id="table-title" class="text-base font-bold text-slate-200 uppercase tracking-widest">Active Projects Queue</h2>
+                <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 w-full md:w-1/2">
+                    <span class="text-slate-500">🔍</span>
+                    <input type="text" id="searchInput" onkeyup="drawTable()" placeholder="Search names, files, species..." class="bg-transparent text-white w-full focus:outline-none text-sm">
+                </div>
+            </div>
+            <div class="overflow-x-auto min-h-[500px]">
+                <table class="w-full text-left text-sm tracking-wide text-slate-400 min-w-[1200px]">
+                    <thead id="table-head" class="table-header uppercase text-[10px] text-slate-500 select-none bg-slate-800 border-b border-slate-700"></thead>
+                    <tbody id="inventory-table" class="text-slate-300 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Collapsible Section for Inactive Projects -->
+        <div id="inactive-section" class="bg-panel rounded-xl border border-slate-700 shadow-2xl overflow-hidden hidden mb-2">
+            <div onclick="toggleInactiveAccordion()" class="p-5 flex justify-between items-center bg-slate-900 border-b border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors select-none">
+                <div class="flex items-center gap-3">
+                    <span id="inactive-chevron" class="text-xs text-slate-500 font-bold transition-transform">▼</span>
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Inactive / Paused Projects (<span id="inactive-count">0</span>)</h2>
+                </div>
+                <span class="text-[10px] text-slate-500 uppercase tracking-widest">Click to expand/collapse</span>
+            </div>
+            <div id="inactive-content" class="overflow-x-auto pb-4 hidden">
+                <table class="w-full text-left text-sm tracking-wide text-slate-400 min-w-[1200px]">
+                    <thead class="table-header uppercase text-[10px] text-slate-500 select-none bg-slate-800 border-b border-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 font-bold w-24">Photo</th>
+                            <th class="px-4 py-3 font-bold">ID/Status</th>
+                            <th class="px-4 py-3 font-bold">Customer</th>
+                            <th class="px-4 py-3 font-bold">Project File</th>
+                            <th class="px-4 py-3 font-bold">Wood & Dimensions</th>
+                            <th class="px-4 py-3 font-bold">Notes & Setup</th>
+                            <th class="px-4 py-3 font-bold text-center w-36">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inactive-table" class="text-slate-300 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Collapsible Section for Completed & Shipped Projects -->
+        <div id="completed-section" class="bg-panel rounded-xl border border-slate-700 shadow-2xl overflow-hidden hidden">
+            <div onclick="toggleCompletedAccordion()" class="p-5 flex justify-between items-center bg-slate-900 border-b border-slate-700 cursor-pointer hover:bg-slate-800 transition-colors select-none">
+                <div class="flex items-center gap-3">
+                    <span id="completed-chevron" class="text-xs text-emerald-500 font-bold transition-transform">▼</span>
+                    <h2 class="text-sm font-bold text-emerald-400 uppercase tracking-widest">Completed & Shipped Projects (<span id="completed-count">0</span>)</h2>
+                </div>
+                <span class="text-[10px] text-slate-500 uppercase tracking-widest">Click to expand/collapse</span>
+            </div>
+            <div id="completed-content" class="overflow-x-auto pb-4 hidden">
+                <table class="w-full text-left text-sm tracking-wide text-slate-400 min-w-[1200px]">
+                    <thead class="table-header uppercase text-[10px] text-slate-500 select-none bg-slate-800 border-b border-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 font-bold w-24">Photo</th>
+                            <th class="px-4 py-3 font-bold">ID/Status</th>
+                            <th class="px-4 py-3 font-bold">Customer</th>
+                            <th class="px-4 py-3 font-bold">Project File</th>
+                            <th class="px-4 py-3 font-bold">Wood & Dimensions</th>
+                            <th class="px-4 py-3 font-bold">Notes & Setup</th>
+                            <th class="px-4 py-3 font-bold text-center w-36">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="completed-table" class="text-slate-300 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Link Modal -->
+<div id="link-modal" class="modal fixed inset-0 flex items-center justify-center z-[100]" style="display: none;">
+    <div class="bg-panel p-6 rounded-lg border border-slate-700 w-96 shadow-2xl">
+        <h2 class="text-base font-bold mb-4 text-blue-400 uppercase tracking-widest border-b border-slate-700 pb-2">Link Board</h2>
+        <p class="text-sm text-slate-400 mb-4">Merge this stock board into an active project.</p>
+        <select id="link-project-id" class="w-full mb-6 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm"></select>
+        <div class="flex justify-end gap-3">
+            <button onclick="closeModal('link-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded text-xs font-bold uppercase tracking-wider">Cancel</button>
+            <button onclick="confirmLink()" class="px-4 py-2 bg-blue-900 hover:bg-blue-800 border border-blue-700 text-blue-100 rounded text-xs font-bold uppercase tracking-wider">Merge</button>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Modal -->
+<div id="stock-modal" class="modal fixed inset-0 flex items-center justify-center z-[100]" style="display: none;">
+    <div class="bg-panel p-6 rounded-lg border border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+        <h2 class="text-base font-bold mb-4 text-blue-400 uppercase tracking-widest border-b border-slate-700 pb-2">Add Lumber Stock</h2>
+        
+        <div class="mb-3">
+            <label class="block text-xs text-slate-500 mb-1 uppercase tracking-widest">Custom Board ID / Bin</label>
+            <input id="s-custom-id" type="text" placeholder="e.g. A-12, Bin4" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white font-bold text-blue-400 text-sm">
+        </div>
+
+        <div class="flex gap-3 mb-3">
+            <div class="w-1/2">
+                <select id="s-species" onchange="autoCalcStockCost()" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                    <option value="" disabled selected>Wood Species</option>
+                    <option value="Pine">Pine</option>
+                    <option value="Fir">Fir</option>
+                    <option value="Oak">Oak</option>
+                    <option value="Cedar">Cedar</option>
+                    <option value="Walnut">Walnut</option>
+                </select>
+            </div>
+            <input id="s-cost" type="number" step="0.01" placeholder="Cost ($)" class="w-1/2 p-3 bg-slate-900 rounded border border-slate-700 text-white font-bold text-emerald-500 text-sm">
+        </div>
+        
+        <label class="block text-xs text-slate-500 mb-1 uppercase tracking-widest">Dimensions (Inches)</label>
+        <div class="flex gap-3 mb-3">
+            <input id="s-length" oninput="autoCalcStockCost()" type="number" step="0.1" placeholder="L" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            <input id="s-width" oninput="autoCalcStockCost()" type="number" step="0.1" placeholder="W" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            <input id="s-thickness" oninput="autoCalcStockCost()" type="number" step="0.1" placeholder="T" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        </div>
+        <input type="file" id="s-photo-file" accept="image/*" class="w-full mb-3 p-2 bg-slate-900 rounded border border-slate-700 text-slate-400 text-sm">
+        <input id="s-location" type="text" placeholder="Location / Rack" class="w-full mb-3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        <input id="s-notes" type="text" placeholder="Notes" class="w-full mb-4 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        <div class="flex justify-end gap-3">
+            <button onclick="closeModal('stock-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded text-sm font-bold uppercase tracking-wider">Cancel</button>
+            <button onclick="submitStockItem()" class="px-4 py-2 bg-blue-900 hover:bg-blue-800 border border-blue-700 text-blue-100 rounded text-xs font-bold uppercase tracking-wider">Save Lumber</button>
+        </div>
+    </div>
+</div>
+
+<!-- Project Modal -->
+<div id="project-modal" class="modal fixed inset-0 flex items-center justify-center z-[100]" style="display: none;">
+    <div class="bg-panel p-6 rounded-lg border border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+        <h2 class="text-base font-bold mb-4 text-wood uppercase tracking-widest border-b border-slate-700 pb-2">Add Project</h2>
+        
+        <div class="grid grid-cols-2 gap-4 mb-3">
+            <input id="p-cnc" type="text" placeholder="Project / File Name" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            <input id="p-customer" type="text" list="customer-list" placeholder="Customer Name" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Project Type</label>
+                <select id="p-workflow" onchange="toggleAddWorkflowUI()" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-wood font-bold text-sm">
+                    <option value="Carving">Carving</option>
+                    <option value="Laser">Laser</option>
+                    <option value="3D Print">3D Print</option>
+                    <option value="Custom">Custom</option>
+                </select>
+            </div>
+            <div id="p-species-container">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Wood Species</label>
+                <select id="p-species" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                    <option value="Pine">Pine</option>
+                    <option value="Fir">Fir</option>
+                    <option value="Cedar">Cedar</option>
+                    <option value="Oak">Oak</option>
+                    <option value="Walnut">Walnut</option>
+                </select>
+            </div>
+            <div id="p-filament-container" class="hidden">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Filament</label>
+                <select id="p-filament" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-cyan-400 font-bold text-sm">
+                    <option value="PLA">PLA</option>
+                    <option value="PETG">PETG</option>
+                    <option value="ABS">ABS</option>
+                    <option value="TPU">TPU</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mb-3">
+            <div class="w-1/2 flex items-center bg-slate-900 rounded border border-slate-700 px-3">
+                <span class="text-xs text-slate-500 mr-2 whitespace-nowrap uppercase tracking-widest">Sale $:</span>
+                <input id="p-sale" type="number" step="0.01" value="0.00" class="w-full bg-transparent text-emerald-500 font-bold focus:outline-none py-2 text-right text-sm">
+            </div>
+        </div>
+        
+        <!-- Router Bits UI -->
+        <div id="p-router-settings" class="flex flex-col gap-3 mb-3">
+            <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-3 py-1">
+                <span class="text-xs text-slate-500 mr-2 whitespace-nowrap uppercase tracking-widest">Feed (IPM):</span>
+                <input id="p-feed" type="number" value="80" class="w-full bg-transparent text-white font-bold focus:outline-none py-1 text-right text-sm">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <script>
+                    for(let i=1; i<=4; i++) {
+                        document.write(`
+                            <select id="p-bit-${i}" class="w-full p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm">
+                                <option value="" selected>Bit ${i}</option>
+                                <option value="1/16 Inch">1/16"</option>
+                                <option value="1/8 Inch">1/8"</option>
+                                <option value="1/4 Inch">1/4"</option>
+                                <option value="1/4 90-Degree">1/4" 90°</option>
+                                <option value="1/4 60-Degree">1/4" 60°</option>
+                                <option value="1/2 Inch">1/2"</option>
+                                <option value="Box Core">Box Core</option>
+                            </select>
+                        `);
+                    }
+                </script>
+            </div>
+        </div>
+
+        <!-- Laser Layers UI -->
+        <div id="p-laser-settings" class="hidden flex-col gap-2 mb-3">
+            <label class="block text-[10px] text-rose-500 uppercase tracking-widest">Laser Layers</label>
+            <script>
+                for(let i=1; i<=4; i++) {
+                    document.write(`
+                    <div class="flex gap-2">
+                        <input id="p-laser-layer-${i}" type="text" placeholder="Layer ${i}" class="w-1/3 p-2 bg-slate-900 rounded border border-slate-700 text-white text-xs">
+                        <input id="p-laser-speed-${i}" type="number" placeholder="Speed" class="w-1/3 p-2 bg-slate-900 rounded border border-slate-700 text-white text-xs">
+                        <input id="p-laser-power-${i}" type="number" placeholder="Power %" class="w-1/3 p-2 bg-slate-900 rounded border border-slate-700 text-white text-xs">
+                    </div>
+                    `);
+                }
+            </script>
+        </div>
+
+        <div id="p-dimensions-container">
+            <label class="block text-xs text-slate-500 mb-1 uppercase tracking-widest">Dimensions (Inches)</label>
+            <div class="flex gap-3 mb-3">
+                <input id="p-length" type="text" placeholder="L" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                <input id="p-width" type="text" placeholder="W" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                <input id="p-thickness" type="text" placeholder="T" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            </div>
+        </div>
+        
+        <div class="flex gap-3 mb-3">
+            <div class="w-1/2">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Date Created</label>
+                <input id="p-date-created" type="date" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm uppercase tracking-widest">
+            </div>
+            <div class="w-1/2">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Due Date</label>
+                <input id="p-due" type="date" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm uppercase tracking-widest">
+            </div>
+        </div>
+
+        <input id="p-notes" type="text" placeholder="Notes" class="w-full mb-4 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        <div class="flex justify-end gap-3">
+            <button onclick="closeModal('project-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded text-sm font-bold uppercase tracking-wider">Cancel</button>
+            <button onclick="submitProjectItem()" class="px-4 py-2 bg-wood hover-bg-wood border border-wood text-slate-900 rounded text-sm font-bold uppercase tracking-wider">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.onload = function() { loadItems(); fetchSpeciesPrices(); };
+    window.addEventListener('pageshow', function(event) { if (event.persisted) { window.location.reload(); } });
+
+    window.inventoryItems = [];
+    window.speciesRates = {};
+    let boardToLink = null;
+    let currentTab = 'projects'; 
+    let sortKey = 'id';
+    let sortDesc = true;
+    let completedOpen = false;
+    let inactiveOpen = false;
+
+    function toggleAddWorkflowUI() {
+        const wf = document.getElementById('p-workflow').value;
+        const speciesContainer = document.getElementById('p-species-container');
+        const filamentContainer = document.getElementById('p-filament-container');
+        const dimensionsContainer = document.getElementById('p-dimensions-container');
+        const routerSettings = document.getElementById('p-router-settings');
+        const laserSettings = document.getElementById('p-laser-settings');
+
+        if (wf === 'Laser') {
+            speciesContainer.classList.remove('hidden');
+            filamentContainer.classList.add('hidden');
+            dimensionsContainer.classList.remove('hidden');
+            routerSettings.classList.add('hidden');
+            laserSettings.classList.remove('hidden');
+            laserSettings.classList.add('flex');
+        } else if (wf === '3D Print') {
+            speciesContainer.classList.add('hidden');
+            filamentContainer.classList.remove('hidden');
+            dimensionsContainer.classList.add('hidden');
+            routerSettings.classList.add('hidden');
+            laserSettings.classList.add('hidden');
+            laserSettings.classList.remove('flex');
+        } else {
+            speciesContainer.classList.remove('hidden');
+            filamentContainer.classList.add('hidden');
+            dimensionsContainer.classList.remove('hidden');
+            routerSettings.classList.remove('hidden');
+            laserSettings.classList.add('hidden');
+            laserSettings.classList.remove('flex');
+        }
+    }
+
+    function toggleCompletedAccordion() {
+        completedOpen = !completedOpen;
+        const content = document.getElementById('completed-content');
+        const chevron = document.getElementById('completed-chevron');
+        if (completedOpen) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function toggleInactiveAccordion() {
+        inactiveOpen = !inactiveOpen;
+        const content = document.getElementById('inactive-content');
+        const chevron = document.getElementById('inactive-chevron');
+        if (inactiveOpen) {
+            content.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            content.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        const btnProj = document.getElementById('tab-btn-projects');
+        const btnLumb = document.getElementById('tab-btn-lumber');
+        const titleEl = document.getElementById('table-title');
+        const compSection = document.getElementById('completed-section');
+        const inactSection = document.getElementById('inactive-section');
+
+        // New sidebar specific button styling
+        if (tab === 'projects') {
+            btnProj.className = "w-full text-left px-4 py-3 rounded-lg font-bold text-sm uppercase tracking-wider border transition-colors bg-wood border-wood text-slate-900 shadow-lg flex items-center justify-between";
+            btnLumb.className = "w-full text-left px-4 py-3 rounded-lg font-bold text-sm uppercase tracking-wider border transition-colors bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 flex items-center justify-between";
+            titleEl.innerText = "Active Projects Queue";
+            compSection.classList.remove('hidden');
+            
+            // Check count to unhide inactive appropriately
+            const inactiveItems = window.inventoryItems.filter(i => i.item_type === 'Project Cut' && i.status === 'Inactive');
+            if (inactiveItems.length > 0) inactSection.classList.remove('hidden');
+
+            sortKey = 'id';
+            sortDesc = true;
+        } else {
+            btnLumb.className = "w-full text-left px-4 py-3 rounded-lg font-bold text-sm uppercase tracking-wider border transition-colors bg-blue-900 border-blue-700 text-blue-100 shadow-lg flex items-center justify-between";
+            btnProj.className = "w-full text-left px-4 py-3 rounded-lg font-bold text-sm uppercase tracking-wider border transition-colors bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 flex items-center justify-between";
+            titleEl.innerText = "Lumber & Stock Inventory";
+            compSection.classList.add('hidden');
+            inactSection.classList.add('hidden');
+            sortKey = 'id';
+            sortDesc = true;
+        }
+        drawTable();
+    }
+
+    function handleSort(key) {
+        if (sortKey === key) {
+            sortDesc = !sortDesc;
+        } else {
+            sortKey = key;
+            sortDesc = false; 
+        }
+        drawTable();
+    }
+
+    function toggleRowMenu(event, id) {
+        event.stopPropagation(); 
+        document.querySelectorAll('[id^="row-menu-"]').forEach(el => {
+            if (el.id !== `row-menu-${id}`) el.classList.add('hidden');
+        });
+        document.getElementById(`row-menu-${id}`).classList.toggle('hidden');
+    }
+
+    function exportToCSV() {
+        if(window.inventoryItems.length === 0) { alert("No data to export."); return; }
+        const headers = ["System_ID", "Custom_ID", "Type", "Workflow", "Status", "Species", "Dimensions", "Customer", "CNC_File", "Cost_Price", "Sale_Price", "Machine_Hrs", "My_Hrs", "Due_Date", "Date_Created", "Location", "Notes"];
+        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        window.inventoryItems.forEach(i => {
+            const row = [ i.id, i.custom_lumber_id || "", i.item_type, i.workflow || "Carving", i.status, i.species || "", i.dimensions || "", i.customer_name || "", i.cnc_file || "", i.cost_price || 0, i.sale_price || 0, i.machine_time || 0, i.board_feet || 0, i.due_date || "", i.date_created || "", i.location || "", `"${(i.notes || "").replace(/"/g, '""')}"` ];
+            csvContent += row.join(",") + "\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "MakerShop_Database.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    async function fetchSpeciesPrices() {
+        const res = await fetch('/api/species_prices');
+        window.speciesRates = await res.json();
+    }
+
+    function autoCalcStockCost() {
+        const species = document.getElementById('s-species').value;
+        const l = parseFloat(document.getElementById('s-length').value) || 0;
+        const w = parseFloat(document.getElementById('s-width').value) || 0;
+        const t = parseFloat(document.getElementById('s-thickness').value) || 0;
+
+        if (species && l > 0 && w > 0 && t > 0 && window.speciesRates[species]) {
+            const bf = (l * w * t) / 144.0;
+            const cost = bf * window.speciesRates[species];
+            document.getElementById('s-cost').value = cost.toFixed(2);
+        }
+    }
+
+    function formatTime(decimalHours) {
+        if (!decimalHours || isNaN(decimalHours)) return "0h 0m";
+        const h = Math.floor(decimalHours);
+        const m = Math.round((decimalHours - h) * 60);
+        return `${h}h ${m}m`;
+    }
+
+    function openModal(id) { 
+        document.getElementById(id).style.display = 'flex'; 
+        if (id === 'project-modal') {
+            const dc = document.getElementById('p-date-created');
+            if (dc && !dc.value) {
+                dc.value = new Date().toISOString().split('T')[0];
+            }
+        }
+    }
+    
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    async function completeItem(id, status = 'Completed') {
+        let msg = `Mark this project as ${status}?`;
+        if(status === 'Inactive') msg = 'Pause this project and move it to the Inactive list?';
+        if(status === 'Pending') msg = 'Reactivate this project and move it to the Active queue?';
+        if(status === 'Ready for Pickup') msg = 'Mark this project as Ready for Pickup?';
+
+        if (confirm(msg)) {
+            await fetch(`/api/complete_item/${id}`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status })
+            });
+            loadItems();
+        }
+    }
+
+    async function cloneItem(id) {
+        const item = window.inventoryItems.find(i => i.id === id);
+        if (!item) return;
+
+        const customers = [...new Set(window.inventoryItems.map(i => i.customer_name).filter(n => n && n.trim() !== ''))];
+        const newCust = prompt(`Enter customer name for the cloned project:\n(Existing: ${customers.join(', ')})`, item.customer_name || '');
+        if (newCust === null) return; 
+
+        const newCnc = prompt("Enter project file / name for the clone:", (item.cnc_file || 'Project') + " (Copy)");
+        if (newCnc === null) return; 
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const clonedData = {
+            item_type: item.item_type,
+            workflow: item.workflow,
+            status: 'Pending',
+            species: item.species,
+            dimensions: item.dimensions,
+            board_feet: 0,
+            cnc_file: newCnc,
+            due_date: item.due_date,
+            date_created: todayStr,
+            location: item.location,
+            notes: item.notes,
+            photo: item.photo,
+            machine_time: 0,
+            cost_price: item.cost_price,
+            sale_price: item.sale_price,
+            customer_name: newCust,
+            custom_lumber_id: item.custom_lumber_id,
+            step_design: 'Pending',
+            step_design_time: 0,
+            step_prep: 'Pending',
+            step_prep_time: 0,
+            step_carve: 'Pending',
+            step_carve_time: 0,
+            step_finish: 'Pending',
+            step_finish_time: 0,
+            reference_images: item.reference_images,
+            router_bits: item.router_bits
+        };
+
+        const res = await fetch('/api/add_item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(clonedData)
+        });
+
+        if (res.ok) {
+            alert("Project cloned successfully!");
+            loadItems();
+        } else {
+            alert("Failed to clone project.");
+        }
+    }
+
+    function openLinkModal(boardId) {
+        boardToLink = boardId;
+        const projectSelect = document.getElementById('link-project-id');
+        const projects = window.inventoryItems.filter(i => i.item_type === 'Project Cut' && i.status !== 'Completed' && i.status !== 'Shipped' && i.status !== 'Inactive');
+        if (projects.length === 0) { alert("No active projects found."); return; }
+        projectSelect.innerHTML = '<option value="" disabled selected>Select Project...</option>' + projects.map(p => `<option value="${p.id}">PRJ-${p.id}: ${p.cnc_file || 'Unnamed'}</option>`).join('');
+        openModal('link-modal');
+    }
+
+    async function confirmLink() {
+        const projectId = document.getElementById('link-project-id').value;
+        if (!projectId) return;
+        await fetch('/api/link_board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ board_id: boardToLink, project_id: projectId }) });
+        closeModal('link-modal');
+        loadItems();
+    }
+
+    function submitStockItem() {
+        const fileInput = document.getElementById('s-photo-file');
+        if (fileInput.files && fileInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) { saveStockToDB(e.target.result); };
+            reader.readAsDataURL(fileInput.files[0]);
+        } else { saveStockToDB(""); }
+    }
+
+    async function saveStockToDB(photoData) {
+        const data = {
+            item_type: 'Stock', status: 'Available', custom_lumber_id: document.getElementById('s-custom-id').value || "", species: document.getElementById('s-species').value, cost_price: parseFloat(document.getElementById('s-cost').value) || 0.0, dimensions: `${document.getElementById('s-length').value || 0} x ${document.getElementById('s-width').value || 0} x ${document.getElementById('s-thickness').value || 0}`, board_feet: 0, location: document.getElementById('s-location').value, notes: document.getElementById('s-notes').value, photo: photoData
+        };
+        await fetch('/api/add_item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        closeModal('stock-modal');
+        loadItems();
+    }
+
+    async function submitProjectItem() {
+        const wf = document.getElementById('p-workflow').value;
+        const is3D = (wf === '3D Print');
+        const isLaser = (wf === 'Laser');
+
+        const l = is3D ? "0" : (document.getElementById('p-length').value || "0");
+        const w = is3D ? "0" : (document.getElementById('p-width').value || "0");
+        const t = is3D ? "0" : (document.getElementById('p-thickness').value || "0");
+        
+        const species = is3D ? document.getElementById('p-filament').value : document.getElementById('p-species').value;
+        
+        let serializedBits = [];
+        let routingSetup = "";
+
+        if (isLaser) {
+            for(let i=1; i<=4; i++) {
+                const layer = document.getElementById(`p-laser-layer-${i}`).value;
+                const speed = document.getElementById(`p-laser-speed-${i}`).value;
+                const power = document.getElementById(`p-laser-power-${i}`).value;
+                if (layer || speed || power) {
+                    serializedBits.push(`LaserLayer|${layer}|${speed}|${power}`);
+                }
+            }
+        } else if (!is3D) {
+            const feedRate = document.getElementById('p-feed').value || "80";
+            routingSetup = `[IPM: ${feedRate}]`;
+            for(let i=1; i<=4; i++) {
+                const b = document.getElementById(`p-bit-${i}`).value;
+                if (b) serializedBits.push(`${b}||`); 
+                else serializedBits.push('');
+            }
+        }
+        
+        let data = {
+            item_type: 'Project Cut', workflow: wf, status: 'Pending', species: species, dimensions: `${l} x ${w} x ${t}`, customer_name: document.getElementById('p-customer').value || "", sale_price: parseFloat(document.getElementById('p-sale').value) || 0.0, board_feet: 0, machine_time: 0, cnc_file: document.getElementById('p-cnc').value, due_date: document.getElementById('p-due').value, date_created: document.getElementById('p-date-created').value, router_bits: serializedBits.join(','), notes: `${document.getElementById('p-notes').value} ${routingSetup}`.trim(), photo: ""
+        };
+        await fetch('/api/add_item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        closeModal('project-modal');
+        loadItems();
+    }
+
+    async function deleteItem(id) {
+        if (confirm("Remove this item?")) { await fetch(`/api/delete_item/${id}`, { method: 'DELETE' }); loadItems(); }
+    }
+
+    async function loadItems() {
+        const response = await fetch('/api/items?t=' + new Date().getTime());
+        const items = await response.json();
+        window.inventoryItems = items;
+        
+        const customers = [...new Set(items.map(i => i.customer_name).filter(n => n && n.trim() !== ''))].sort();
+        let datalist = document.getElementById('customer-list');
+        if (!datalist) {
+            datalist = document.createElement('datalist');
+            datalist.id = 'customer-list';
+            document.body.appendChild(datalist);
+        }
+        datalist.innerHTML = customers.map(c => `<option value="${c}">`).join('');
+
+        const stockCount = items.filter(i => i.item_type === 'Stock').length;
+        document.getElementById('total-count').innerText = `${stockCount} Boards`;
+
+        const allProjects = items.filter(i => i.item_type === 'Project Cut');
+        const activeProjects = allProjects.filter(p => p.status !== 'Completed' && p.status !== 'Shipped' && p.status !== 'Inactive');
+        const inactiveProjects = allProjects.filter(p => p.status === 'Inactive');
+        const completedProjects = allProjects.filter(p => p.status === 'Completed' || p.status === 'Shipped');
+        
+        document.getElementById('active-cnc').innerText = `${activeProjects.length} Active`;
+        document.getElementById('inactive-count').innerText = inactiveProjects.length;
+        document.getElementById('completed-count').innerText = completedProjects.length;
+
+        if (inactiveProjects.length > 0 && currentTab === 'projects') {
+            document.getElementById('inactive-section').classList.remove('hidden');
+        } else {
+            document.getElementById('inactive-section').classList.add('hidden');
+        }
+
+        if (completedProjects.length > 0 && currentTab === 'projects') {
+            document.getElementById('completed-section').classList.remove('hidden');
+        } else {
+            document.getElementById('completed-section').classList.add('hidden');
+        }
+        
+        const activeHours = activeProjects.reduce((sum, p) => sum + (parseFloat(p.board_feet) || 0) + (parseFloat(p.machine_time) || 0), 0);
+        document.getElementById('total-workload').innerText = formatTime(activeHours);
+
+        const completedHours = completedProjects.reduce((sum, p) => sum + (parseFloat(p.board_feet) || 0) + (parseFloat(p.machine_time) || 0), 0);
+        document.getElementById('completed-stats').innerText = `${completedProjects.length} Proj | ${formatTime(completedHours)}`;
+
+        drawTable();
+    }
+
+    function drawTable() {
+        const thead = document.getElementById('table-head');
+        const tbody = document.getElementById('inventory-table');
+        const compTbody = document.getElementById('completed-table');
+        const inactTbody = document.getElementById('inactive-table');
+        
+        let items = [...window.inventoryItems];
+
+        if (currentTab === 'projects') {
+            const activeItems = items.filter(i => i.item_type === 'Project Cut' && i.status !== 'Completed' && i.status !== 'Shipped' && i.status !== 'Inactive');
+            const compItems = items.filter(i => i.item_type === 'Project Cut' && (i.status === 'Completed' || i.status === 'Shipped'));
+            const inactiveItems = items.filter(i => i.item_type === 'Project Cut' && i.status === 'Inactive');
+
+            thead.innerHTML = `
+                <tr>
+                    <th class="px-4 py-3 font-bold w-24">Photo</th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group whitespace-nowrap" onclick="handleSort('id')">ID/Status <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('customer_name')">Customer <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('cnc_file')">Project File <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('species')">Wood & Dimensions <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold">Notes & Setup</th>
+                    <th class="px-4 py-3 font-bold text-center w-36">Actions</th>
+                </tr>
+            `;
+
+            // Sort & Filter Active Table
+            let displayActive = [...activeItems];
+            displayActive.sort((a, b) => {
+                let v1 = a[sortKey] || '';
+                let v2 = b[sortKey] || '';
+                if (typeof v1 === 'string') v1 = v1.toLowerCase();
+                if (typeof v2 === 'string') v2 = v2.toLowerCase();
+                if (v1 < v2) return sortDesc ? 1 : -1;
+                if (v1 > v2) return sortDesc ? -1 : 1;
+                return 0;
+            });
+
+            const input = document.getElementById("searchInput").value.toUpperCase();
+            if (input) {
+                displayActive = displayActive.filter(i => {
+                    const combined = `${i.id} ${i.workflow} ${i.status} ${i.species} ${i.cnc_file} ${i.customer_name} ${i.notes} ${i.due_date} ${i.date_created}`.toUpperCase();
+                    return combined.includes(input);
+                });
+            }
+
+            if (displayActive.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500 uppercase tracking-widest">No active projects found.</td></tr>`;
+            } else {
+                tbody.innerHTML = displayActive.map(item => renderProjectRow(item)).join('');
+            }
+
+            // Render Inactive Table
+            if (inactiveItems.length === 0) {
+                inactTbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-600 uppercase tracking-widest text-xs">No inactive projects.</td></tr>`;
+            } else {
+                inactTbody.innerHTML = inactiveItems.map(item => renderProjectRow(item)).join('');
+            }
+
+            // Render Completed / Shipped Table
+            if (compItems.length === 0) {
+                compTbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-600 uppercase tracking-widest text-xs">No completed or shipped projects.</td></tr>`;
+            } else {
+                compTbody.innerHTML = compItems.map(item => renderProjectRow(item)).join('');
+            }
+
+        } else {
+            let lumberItems = items.filter(i => i.item_type === 'Stock');
+            thead.innerHTML = `
+                <tr>
+                    <th class="px-4 py-3 font-bold w-24">Photo</th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group whitespace-nowrap" onclick="handleSort('id')">Board ID <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('species')">Species <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold">Dimensions (L x W x T)</th>
+                    <th class="px-4 py-3 font-bold">Location / Rack</th>
+                    <th class="px-4 py-3 font-bold">Cost & Notes</th>
+                    <th class="px-4 py-3 font-bold text-center w-36">Actions</th>
+                </tr>
+            `;
+
+            lumberItems.sort((a, b) => {
+                let v1 = a[sortKey] || '';
+                let v2 = b[sortKey] || '';
+                if (typeof v1 === 'string') v1 = v1.toLowerCase();
+                if (typeof v2 === 'string') v2 = v2.toLowerCase();
+                if (v1 < v2) return sortDesc ? 1 : -1;
+                if (v1 > v2) return sortDesc ? -1 : 1;
+                return 0;
+            });
+
+            const input = document.getElementById("searchInput").value.toUpperCase();
+            if (input) {
+                lumberItems = lumberItems.filter(i => {
+                    const combined = `${i.id} ${i.custom_lumber_id} ${i.species} ${i.dimensions} ${i.location} ${i.notes}`.toUpperCase();
+                    return combined.includes(input);
+                });
+            }
+
+            if (lumberItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500 uppercase tracking-widest">No lumber stock found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = lumberItems.map(item => {
+                const displayId = item.custom_lumber_id ? `${item.custom_lumber_id} <span class="text-[10px] text-slate-500">(LMB-${item.id})</span>` : `LMB-${item.id}`;
+                return `
+                <tr class="border-b border-slate-700/50 hover:bg-slate-700 transition-colors cursor-pointer" onclick="window.location.href='/project/${item.id}'">
+                    <td class="px-4 py-3">
+                        ${item.photo ? `<div class="relative w-24 h-16 rounded overflow-hidden border border-slate-600 ruler-overlay"><img src="${item.photo}" class="w-full h-full object-cover"></div>` : '<span class="text-slate-600 text-xs font-bold tracking-widest">NO PHOTO</span>'}
+                    </td>
+                    <td class="px-4 py-3 font-bold text-blue-400 whitespace-nowrap">
+                        ${displayId}<br>
+                        <span class="text-[10px] text-slate-500 font-normal tracking-widest uppercase">Stock Board</span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-200 font-semibold">${item.species || '-'}</td>
+                    <td class="px-4 py-3">
+                        <span class="text-amber-400 font-bold text-sm tracking-wide bg-slate-900 border border-slate-700 rounded px-2 py-1 inline-block mt-1">${item.dimensions || '-'}</span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-400">${item.location || '-'}</td>
+                    <td class="px-4 py-3 text-sm text-slate-400 leading-relaxed max-w-[250px] break-words whitespace-pre-wrap">
+                        <span class="text-emerald-500 font-bold">$${(parseFloat(item.cost_price)||0).toFixed(2)}</span>
+                        ${item.notes ? `<br>${item.notes}` : ''}
+                    </td>
+                    <td class="px-4 py-3 align-middle relative">
+                        <button onclick="toggleRowMenu(event, ${item.id})" class="bg-slate-800 hover:bg-slate-600 border border-slate-600 text-slate-300 px-4 py-2 rounded text-xs font-bold w-28 mx-auto uppercase tracking-wider transition-colors flex justify-between items-center shadow-sm">
+                            Actions <span class="text-[10px]">▼</span>
+                        </button>
+                        <div id="row-menu-${item.id}" class="hidden absolute right-8 top-12 w-36 bg-slate-800 rounded border border-slate-600 shadow-2xl z-50 flex flex-col py-1 overflow-hidden">
+                            <button onclick="event.stopPropagation(); window.location.href='/project/${item.id}'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">✏️ Edit</button>
+                            <button onclick="event.stopPropagation(); openLinkModal(${item.id})" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-wood transition-colors uppercase tracking-wider flex items-center gap-2">🔗 Link</button>
+                            <div class="border-t border-slate-700 my-1"></div>
+                            <button onclick="event.stopPropagation(); deleteItem(${item.id})" class="text-left px-4 py-3 hover:bg-red-900/50 hover:text-red-300 text-xs font-bold text-red-400 transition-colors uppercase tracking-wider flex items-center gap-2">🗑️ Delete</button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    function renderProjectRow(item) {
+        const displayId = `PRJ-${item.id}`;
+        const wf = item.workflow || 'Carving';
+        const wfColor = wf === 'Laser' ? 'text-purple-400 border-purple-800 bg-purple-900/30' : (wf === '3D Print' ? 'text-cyan-400 border-cyan-800 bg-cyan-900/30' : (wf === 'Custom' ? 'text-blue-400 border-blue-800 bg-blue-900/30' : 'text-amber-500 border-amber-800 bg-amber-900/30'));
+
+        let statusColor = 'text-wood';
+        if (item.status === 'Completed') statusColor = 'text-emerald-500';
+        if (item.status === 'Shipped') statusColor = 'text-blue-400';
+        if (item.status === 'In Progress') statusColor = 'text-yellow-500';
+        if (item.status === 'Inactive') statusColor = 'text-slate-500';
+        if (item.status === 'Ready for Pickup') statusColor = 'text-fuchsia-400 font-extrabold';
+
+        let bitsHtml = '';
+        if (item.router_bits && item.router_bits.replace(/,/g, '') !== '') {
+            const rawBits = item.router_bits.split(',').filter(b=>b.trim()!=='');
+            if (rawBits[0].startsWith('LaserLayer|')) {
+                bitsHtml = `<div class="mt-2 text-[10px] font-bold text-rose-400 tracking-widest uppercase">LASER LAYERS: ${rawBits.length} SET</div>`;
+            } else if (rawBits[0].startsWith('Laser|')) {
+                bitsHtml = `<div class="mt-2 text-[10px] font-bold text-rose-400 tracking-widest uppercase">LASER: ENABLED</div>`;
+            } else {
+                bitsHtml = `<div class="mt-2 text-[10px] font-bold text-slate-300 tracking-widest uppercase">BITS: ${rawBits.join(' | ')}</div>`;
+            }
+        }
+
+        return `
+        <tr class="border-b border-slate-700/50 hover:bg-slate-700 transition-colors cursor-pointer ${(item.status === 'Completed' || item.status === 'Shipped') ? 'opacity-50' : ''}" onclick="window.location.href='/project/${item.id}'">
+            <td class="px-4 py-3">
+                ${item.photo ? `<div class="relative w-24 h-16 rounded overflow-hidden border border-slate-600 ruler-overlay"><img src="${item.photo}" class="w-full h-full object-cover"></div>` : (item.notes && item.notes.includes('[Photo: /') ? `<div class="relative w-24 h-16 rounded overflow-hidden border border-slate-600 ruler-overlay"><img src="${item.notes.split('[Photo: ')[1].split(']')[0]}" class="w-full h-full object-cover"></div>` : '<span class="text-slate-600 text-xs font-bold tracking-widest">NO PHOTO</span>')}
+            </td>
+            <td class="px-4 py-3 font-bold ${statusColor} whitespace-nowrap">
+                ${displayId}<br>
+                <span class="text-[10px] font-normal tracking-widest uppercase">${item.status}</span><br>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block mt-1 ${wfColor}">${wf}</span>
+            </td>
+            <td class="px-4 py-3 font-bold text-blue-400 uppercase tracking-widest">
+                ${item.customer_name || '-'}
+                ${item.date_created ? `<br><span class="text-[10px] font-normal text-slate-500 tracking-widest mt-1 inline-block">CREATED: ${item.date_created}</span>` : ''}
+            </td>
+            <td class="px-4 py-3 font-bold text-slate-200">
+                ${item.cnc_file || 'Unnamed'}
+                ${item.due_date ? `<br><span class="text-wood text-[10px] font-bold tracking-widest uppercase mt-1 inline-block">DUE: ${item.due_date}</span>` : ''}
+            </td>
+            <td class="px-4 py-3 text-slate-300 font-semibold">
+                ${item.species || '-'}
+                <br><span class="text-amber-400 text-[11px] font-bold tracking-widest uppercase mt-2 inline-block bg-slate-900 border border-slate-700 px-2 py-1 rounded shadow-sm">${item.dimensions || '-'}</span>
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-400 leading-relaxed max-w-[250px] break-words whitespace-pre-wrap">
+                <div class="mb-2 flex gap-1">
+                    <span title="Design" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_design === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-600 border border-slate-700'}">DSN</span>
+                    <span title="Prep" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_prep === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-600 border border-slate-700'}">PRP</span>
+                    <span title="Carve" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_carve === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-600 border border-slate-700'}">CRV</span>
+                    <span title="Finish" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_finish === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : (item.step_finish === 'In Progress' ? 'bg-yellow-900/50 text-yellow-500 border border-yellow-800' : 'bg-slate-800 text-slate-600 border border-slate-700')}">FIN</span>
+                </div>
+                ${item.notes || '-'}
+                ${bitsHtml}
+                <br><span class="text-slate-500 font-bold mt-2 inline-block uppercase tracking-wider">MACH: ${formatTime(item.machine_time)} | SHOP: ${formatTime(item.board_feet)}</span>
+            </td>
+            <td class="px-4 py-3 align-middle relative">
+                <button onclick="toggleRowMenu(event, ${item.id})" class="bg-slate-800 hover:bg-slate-600 border border-slate-600 text-slate-300 px-4 py-2 rounded text-xs font-bold w-28 mx-auto uppercase tracking-wider transition-colors flex justify-between items-center shadow-sm">
+                    Actions <span class="text-[10px]">▼</span>
+                </button>
+                <div id="row-menu-${item.id}" class="hidden absolute right-8 top-12 w-40 bg-slate-800 rounded border border-slate-600 shadow-2xl z-50 flex flex-col py-1 overflow-hidden">
+                    <button onclick="event.stopPropagation(); window.location.href='/project/${item.id}'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">✏️ Edit</button>
+                    ${item.status !== 'Ready for Pickup' && item.status !== 'Completed' && item.status !== 'Shipped' && item.status !== 'Inactive' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Ready for Pickup')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-fuchsia-400 transition-colors uppercase tracking-wider flex items-center gap-2">🛍️ For Pickup</button>` : ''}
+                    ${item.status !== 'Inactive' && item.status !== 'Completed' && item.status !== 'Shipped' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Inactive')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-400 transition-colors uppercase tracking-wider flex items-center gap-2">⏸️ Pause Project</button>` : ''}
+                    ${item.status === 'Inactive' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Pending')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-yellow-500 transition-colors uppercase tracking-wider flex items-center gap-2">▶️ Activate</button>` : ''}
+                    <button onclick="event.stopPropagation(); cloneItem(${item.id})" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2">📋 Clone</button>
+                    ${item.status !== 'Completed' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Completed')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-emerald-400 transition-colors uppercase tracking-wider flex items-center gap-2">✅ Complete</button>` : ''}
+                    ${item.status !== 'Shipped' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Shipped')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2">📦 Shipped</button>` : ''}
+                    ${item.status !== 'Pending' && item.status !== 'In Progress' && item.status !== 'Inactive' && item.status !== 'Ready for Pickup' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Pending')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-yellow-500 transition-colors uppercase tracking-wider flex items-center gap-2">🔄 Reopen</button>` : ''}
+                    ${item.status !== 'Completed' && item.status !== 'Shipped' ? `<button onclick="event.stopPropagation(); window.location.href='/timer/${item.id}'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2">⏱️ Timer</button>` : ''}
+                    <div class="border-t border-slate-700 my-1"></div>
+                    <button onclick="event.stopPropagation(); deleteItem(${item.id})" class="text-left px-4 py-3 hover:bg-red-900/50 hover:text-red-300 text-xs font-bold text-red-400 transition-colors uppercase tracking-wider flex items-center gap-2">🗑️ Delete</button>
+                </div>
+            </td>
+        </tr>
+        `;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+:root {
+    --bg-base: #0a0a0a;       /* True Black */
+    --bg-panel: #171717;      /* Dark Gray */
+    --accent-wood: #dc2626;   /* Vibrant Red */
+    --border-subtle: #262626; /* Mid Gray */
+}
+
+body { 
+    background-color: var(--bg-base); 
+    color: #ffffff; /* True White text */
+}
+
+.bg-panel { background-color: var(--bg-panel); }
+.bg-base { background-color: var(--bg-base); }
+.text-wood { color: var(--accent-wood); }
+.border-wood { border-color: var(--accent-wood); }
+.bg-wood { background-color: var(--accent-wood); color: #ffffff; }
+.hover-bg-wood:hover { background-color: #b91c1c; color: #ffffff; }
+
+.table-header { 
+    background-color: var(--bg-base); 
+    border-bottom: 1px solid var(--border-subtle); 
+}
+
+.modal { 
+    background: rgba(10, 10, 10, 0.85); 
+    backdrop-filter: blur(4px); 
+}
+
+.ruler-overlay { 
+    background-image: linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px); 
+    background-size: 20px 100%; 
+}
+
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+}
+
+.digital-clock { 
+    font-variant-numeric: tabular-nums; 
+}

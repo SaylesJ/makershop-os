@@ -1,0 +1,22 @@
+Flask==3.0.0
+Werkzeug==3.0.1
+
+---------------------------------------------------
+/makershop-os
+├── app.py
+├── requirements.txt
+├── install.sh
+├── static/
+│   └── css/
+│       └── style.css
+└── templates/
+    ├── base.html
+    ├── index.html
+    ├── mobile.html
+    ├── media.html
+    ├── pos.html
+    ├── reference.html
+    ├── schedule.html
+    ├── accounts.html
+    ├── project.html
+    └── timer.html

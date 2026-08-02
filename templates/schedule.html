@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+
+{% block subtitle %}Active Schedule Queue{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-panel p-4 rounded-lg flex justify-between items-center border border-slate-700">
+        <div>
+            <p class="text-xs text-slate-400 font-bold mb-1 tracking-widest">ACTIVE WORKLOAD</p>
+            <p id="total-workload" class="text-xl text-wood font-bold">0h 0m</p>
+        </div>
+    </div>
+    <div class="bg-panel p-4 rounded-lg flex justify-between items-center border border-emerald-900">
+        <div>
+            <p class="text-xs text-slate-400 font-bold mb-1 tracking-widest">COMPLETED STATS</p>
+            <p id="completed-stats" class="text-xl text-emerald-500 font-bold">0 Projects | 0h 0m</p>
+        </div>
+    </div>
+    <div onclick="window.location.href='/'" class="bg-panel p-4 rounded-lg flex justify-between items-center border border-slate-700 cursor-pointer hover:border-slate-500 transition-colors">
+        <div>
+            <p class="text-xs text-slate-400 font-bold mb-1 tracking-widest">TOTAL INVENTORY</p>
+            <p id="total-count" class="text-xl text-blue-400 font-bold">0 Items</p>
+        </div>
+    </div>
+    <div class="bg-panel p-4 rounded-lg flex justify-between items-center border border-slate-700">
+        <div>
+            <p class="text-xs text-slate-400 font-bold mb-1 tracking-widest">ACTIVE PROJECTS</p>
+            <p id="active-cnc" class="text-xl text-wood font-bold">0 Active</p>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar View -->
+<div class="bg-panel rounded-lg border border-slate-700 overflow-hidden shadow-xl mb-6 p-6">
+    <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-3">
+        <button onclick="prevMonth()" class="text-slate-400 hover:text-wood px-3 font-bold text-sm uppercase tracking-widest transition-colors">◀ Prev</button>
+        <h3 id="calendar-month" class="text-slate-200 font-bold uppercase tracking-widest text-base">Month Year</h3>
+        <button onclick="nextMonth()" class="text-slate-400 hover:text-wood px-3 font-bold text-sm uppercase tracking-widest transition-colors">Next ▶</button>
+    </div>
+    <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-500 mb-2 tracking-widest uppercase">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+        <!-- Calendar Days Injected Here -->
+    </div>
+</div>
+
+<div class="bg-panel rounded-lg border border-slate-700 shadow-xl">
+    <div class="p-4 flex justify-between items-center border-b border-slate-700 bg-base rounded-t-lg">
+        <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">Active Queue</h2>
+        <input type="text" id="searchInput" onkeyup="drawTable()" placeholder="Search or click a calendar date..." class="p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 w-1/4 focus:outline-none focus:border-wood text-sm">
+    </div>
+    <div class="overflow-x-auto min-h-[300px] pb-4">
+        <table class="w-full text-left text-sm tracking-wide text-slate-400 min-w-[1200px]">
+            <thead class="table-header uppercase text-xs text-slate-500 select-none">
+                <tr>
+                    <th class="px-4 py-3 font-bold w-24">Photo</th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group whitespace-nowrap" onclick="handleSort('due_date')">Due Date <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('customer_name')">Customer <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('cnc_file')">Project File <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold cursor-pointer hover:text-white group" onclick="handleSort('species')">Wood & Dimensions <span class="opacity-50 group-hover:opacity-100 text-[10px]">↕</span></th>
+                    <th class="px-4 py-3 font-bold">Notes & Setup</th>
+                    <th class="px-4 py-3 font-bold text-center w-36">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="schedule-table" class="text-slate-300 text-sm"></tbody>
+        </table>
+        <div id="empty-msg" class="p-8 text-center text-slate-600 text-sm uppercase tracking-widest hidden">No active scheduled projects found.</div>
+    </div>
+</div>
+
+<!-- Project Modal -->
+<div id="project-modal" class="modal fixed inset-0 flex items-center justify-center z-[100]" style="display: none;">
+    <div class="bg-panel p-6 rounded-lg border border-slate-700 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+        <h2 class="text-base font-bold mb-4 text-wood uppercase tracking-widest border-b border-slate-700 pb-2">Add Project</h2>
+        
+        <div class="grid grid-cols-2 gap-4 mb-3">
+            <input id="p-cnc" type="text" placeholder="Project / File Name" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            <input id="p-customer" type="text" list="customer-list" placeholder="Customer Name" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Project Type</label>
+                <select id="p-workflow" onchange="toggleAddWorkflowUI()" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-wood font-bold text-sm">
+                    <option value="Carving">Carving</option>
+                    <option value="Laser">Laser</option>
+                    <option value="3D Print">3D Print</option>
+                    <option value="Custom">Custom</option>
+                </select>
+            </div>
+            <div id="p-species-container">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Wood Species</label>
+                <select id="p-species" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                    <option value="Pine">Pine</option>
+                    <option value="Fir">Fir</option>
+                    <option value="Cedar">Cedar</option>
+                    <option value="Oak">Oak</option>
+                    <option value="Walnut">Walnut</option>
+                </select>
+            </div>
+            <div id="p-filament-container" class="hidden">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Filament</label>
+                <select id="p-filament" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-cyan-400 font-bold text-sm">
+                    <option value="PLA">PLA</option>
+                    <option value="PETG">PETG</option>
+                    <option value="ABS">ABS</option>
+                    <option value="TPU">TPU</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mb-3">
+            <div class="w-1/2 flex items-center bg-slate-900 rounded border border-slate-700 px-3">
+                <span class="text-xs text-slate-500 mr-2 whitespace-nowrap uppercase tracking-widest">Sale $:</span>
+                <input id="p-sale" type="number" step="0.01" value="0.00" class="w-full bg-transparent text-emerald-500 font-bold focus:outline-none py-2 text-right text-sm">
+            </div>
+        </div>
+        
+        <!-- Router Bits UI -->
+        <div id="p-router-settings" class="flex flex-col gap-3 mb-3">
+            <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-3 py-1">
+                <span class="text-xs text-slate-500 mr-2 whitespace-nowrap uppercase tracking-widest">Feed (IPM):</span>
+                <input id="p-feed" type="number" value="80" class="w-full bg-transparent text-white font-bold focus:outline-none py-1 text-right text-sm">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <script>
+                    for(let i=1; i<=4; i++) {
+                        document.write(`
+                            <select id="p-bit-${i}" class="w-full p-2 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm">
+                                <option value="" selected>Bit ${i}</option>
+                                <option value="1/16 Inch">1/16"</option>
+                                <option value="1/8 Inch">1/8"</option>
+                                <option value="1/4 Inch">1/4"</option>
+                                <option value="1/4 90-Degree">1/4" 90°</option>
+                                <option value="1/4 60-Degree">1/4" 60°</option>
+                                <option value="1/2 Inch">1/2"</option>
+                                <option value="Box Core">Box Core</option>
+                            </select>
+                        `);
+                    }
+                </script>
+            </div>
+        </div>
+
+        <!-- Laser Layers UI -->
+        <div id="p-laser-settings" class="hidden flex-col gap-2 mb-3">
+            <label class="block text-[10px] text-rose-500 uppercase tracking-widest">Laser Layers</label>
+            <script>
+                for(let i=1; i<=4; i++) {
+                    document.write(`
+                    <div class="flex gap-2">
+                        <input id="p-laser-layer-${i}" type="text" placeholder="Layer ${i}" class="w-1/3 p-2 bg-slate-900 rounded border border-slate-700 text-white text-xs">
+                        <input id="p-laser-speed-${i}" type="number" placeholder="Speed" class="w-1/3 p-2 bg-slate-900 rounded border border-slate-700 text-white text-xs">
+                        <input id="p-laser-power-${i}" type="number" placeholder="Power %" class="w-1/3 p-2 bg-slate-900 rounded border border-slate-700 text-white text-xs">
+                    </div>
+                    `);
+                }
+            </script>
+        </div>
+
+        <div id="p-dimensions-container">
+            <label class="block text-xs text-slate-500 mb-1 uppercase tracking-widest">Dimensions (Inches)</label>
+            <div class="flex gap-3 mb-3">
+                <input id="p-length" type="text" placeholder="L" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                <input id="p-width" type="text" placeholder="W" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+                <input id="p-thickness" type="text" placeholder="T" class="w-1/3 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+            </div>
+        </div>
+        
+        <div class="flex gap-3 mb-3">
+            <div class="w-1/2">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Date Created</label>
+                <input id="p-date-created" type="date" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm uppercase tracking-widest">
+            </div>
+            <div class="w-1/2">
+                <label class="block text-[10px] text-slate-500 mb-1 uppercase tracking-widest">Due Date</label>
+                <input id="p-due" type="date" class="w-full p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-sm uppercase tracking-widest">
+            </div>
+        </div>
+
+        <input id="p-notes" type="text" placeholder="Notes" class="w-full mb-4 p-3 bg-slate-900 rounded border border-slate-700 text-white text-sm">
+        <div class="flex justify-end gap-3">
+            <button onclick="closeModal('project-modal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded text-sm font-bold uppercase tracking-wider">Cancel</button>
+            <button onclick="submitProjectItem()" class="px-4 py-2 bg-wood hover-bg-wood border border-wood text-slate-900 rounded text-sm font-bold uppercase tracking-wider">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.onload = function() { loadSchedule(); };
+    
+    // Automatically load fresh data anytime the page is viewed to avoid Back Button Cache issues
+    window.addEventListener('pageshow', function() { loadSchedule(); });
+
+    window.inventoryItems = [];
+    let currentDate = new Date();
+    
+    // Sort State
+    let sortKey = 'due_date';
+    let sortDesc = false;
+
+    function toggleAddWorkflowUI() {
+        const wf = document.getElementById('p-workflow').value;
+        const speciesContainer = document.getElementById('p-species-container');
+        const filamentContainer = document.getElementById('p-filament-container');
+        const dimensionsContainer = document.getElementById('p-dimensions-container');
+        const routerSettings = document.getElementById('p-router-settings');
+        const laserSettings = document.getElementById('p-laser-settings');
+
+        if (wf === 'Laser') {
+            speciesContainer.classList.remove('hidden');
+            filamentContainer.classList.add('hidden');
+            dimensionsContainer.classList.remove('hidden');
+            routerSettings.classList.add('hidden');
+            laserSettings.classList.remove('hidden');
+            laserSettings.classList.add('flex');
+        } else if (wf === '3D Print') {
+            speciesContainer.classList.add('hidden');
+            filamentContainer.classList.remove('hidden');
+            dimensionsContainer.classList.add('hidden');
+            routerSettings.classList.add('hidden');
+            laserSettings.classList.add('hidden');
+            laserSettings.classList.remove('flex');
+        } else {
+            speciesContainer.classList.remove('hidden');
+            filamentContainer.classList.add('hidden');
+            dimensionsContainer.classList.remove('hidden');
+            routerSettings.classList.remove('hidden');
+            laserSettings.classList.add('hidden');
+            laserSettings.classList.remove('flex');
+        }
+    }
+
+    function handleSort(key) {
+        if (sortKey === key) {
+            sortDesc = !sortDesc;
+        } else {
+            sortKey = key;
+            sortDesc = false;
+        }
+        drawTable();
+    }
+
+    function toggleRowMenu(event, id) {
+        event.stopPropagation(); 
+        document.querySelectorAll('[id^="row-menu-"]').forEach(el => {
+            if (el.id !== `row-menu-${id}`) el.classList.add('hidden');
+        });
+        document.getElementById(`row-menu-${id}`).classList.toggle('hidden');
+    }
+
+    function formatTime(decimalHours) {
+        if (!decimalHours || isNaN(decimalHours)) return "0h 0m";
+        const h = Math.floor(decimalHours);
+        const m = Math.round((decimalHours - h) * 60);
+        return `${h}h ${m}m`;
+    }
+
+    function openModal(id) { 
+        document.getElementById(id).style.display = 'flex'; 
+        if (id === 'project-modal') {
+            const dc = document.getElementById('p-date-created');
+            if (dc && !dc.value) {
+                dc.value = new Date().toISOString().split('T')[0];
+            }
+        }
+    }
+    
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function filterTableByDate(dateStr) {
+        const input = document.getElementById("searchInput");
+        if (input) {
+            input.value = dateStr;
+            drawTable();
+        }
+        window.scrollTo({top: 400, behavior: 'smooth'});
+    }
+
+    function renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+        
+        const month = currentDate.getMonth();
+        const year = currentDate.getFullYear();
+        
+        document.getElementById('calendar-month').innerText = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(currentDate);
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        for(let i=0; i<firstDay; i++) {
+            grid.innerHTML += `<div class="p-2 border border-transparent h-20"></div>`;
+        }
+        
+        for(let day=1; day<=daysInMonth; day++) {
+            const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            const dueProjects = window.inventoryItems.filter(p => p.item_type === 'Project Cut' && p.status !== 'Completed' && p.status !== 'Shipped' && p.status !== 'Inactive' && p.due_date === dateStr);
+            
+            let projectBadges = '';
+            if(dueProjects.length > 0) {
+                projectBadges = dueProjects.map(p => `<div class="bg-wood text-slate-900 text-xs font-bold rounded px-1.5 mt-1 truncate border border-amber-500 shadow-sm" title="${p.cnc_file || 'PRJ-'+p.id}">${p.cnc_file || 'PRJ-'+p.id}</div>`).join('');
+            }
+
+            const isToday = new Date().toISOString().split('T')[0] === dateStr;
+            const bgClass = isToday ? 'bg-slate-700 border-wood border-2 shadow-inner' : 'bg-slate-800 border-slate-700';
+            const textClass = isToday ? 'text-wood font-bold' : 'text-slate-400 font-bold';
+            
+            grid.innerHTML += `
+                <div class="h-20 p-2 border rounded-md ${bgClass} hover:bg-slate-700 transition-colors overflow-y-auto cursor-pointer" onclick="filterTableByDate('${dateStr}')">
+                    <div class="${textClass} text-xs text-right">${day}</div>
+                    ${projectBadges}
+                </div>
+            `;
+        }
+    }
+
+    function prevMonth() { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); }
+    function nextMonth() { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); }
+
+    async function completeItem(id, status = 'Completed') {
+        let msg = `Mark this project as ${status}?`;
+        if(status === 'Inactive') msg = 'Pause this project and move it to the Inactive list?';
+        if(status === 'Pending') msg = 'Reactivate this project and move it to the Active queue?';
+        if(status === 'Ready for Pickup') msg = 'Mark this project as Ready for Pickup?';
+
+        if (confirm(msg)) {
+            await fetch(`/api/complete_item/${id}`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status })
+            });
+            loadSchedule();
+        }
+    }
+
+    async function cloneItem(id) {
+        const item = window.inventoryItems.find(i => i.id === id);
+        if (!item) return;
+
+        const customers = [...new Set(window.inventoryItems.map(i => i.customer_name).filter(n => n && n.trim() !== ''))];
+        const newCust = prompt(`Enter customer name for the cloned project:\n(Existing: ${customers.join(', ')})`, item.customer_name || '');
+        if (newCust === null) return; 
+
+        const newCnc = prompt("Enter project file / name for the clone:", (item.cnc_file || 'Project') + " (Copy)");
+        if (newCnc === null) return; 
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const clonedData = {
+            item_type: item.item_type,
+            workflow: item.workflow,
+            status: 'Pending',
+            species: item.species,
+            dimensions: item.dimensions,
+            board_feet: 0,
+            cnc_file: newCnc,
+            due_date: item.due_date,
+            date_created: todayStr,
+            location: item.location,
+            notes: item.notes,
+            photo: item.photo,
+            machine_time: 0,
+            cost_price: item.cost_price,
+            sale_price: item.sale_price,
+            customer_name: newCust,
+            custom_lumber_id: item.custom_lumber_id,
+            step_design: 'Pending',
+            step_design_time: 0,
+            step_prep: 'Pending',
+            step_prep_time: 0,
+            step_carve: 'Pending',
+            step_carve_time: 0,
+            step_finish: 'Pending',
+            step_finish_time: 0,
+            reference_images: item.reference_images,
+            router_bits: item.router_bits
+        };
+
+        const res = await fetch('/api/add_item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(clonedData)
+        });
+
+        if (res.ok) {
+            alert("Project cloned successfully!");
+            loadSchedule();
+        } else {
+            alert("Failed to clone project.");
+        }
+    }
+
+    async function submitProjectItem() {
+        const wf = document.getElementById('p-workflow').value;
+        const is3D = (wf === '3D Print');
+        const isLaser = (wf === 'Laser');
+
+        const l = is3D ? "0" : (document.getElementById('p-length').value || "0");
+        const w = is3D ? "0" : (document.getElementById('p-width').value || "0");
+        const t = is3D ? "0" : (document.getElementById('p-thickness').value || "0");
+        
+        const species = is3D ? document.getElementById('p-filament').value : document.getElementById('p-species').value;
+        
+        let serializedBits = [];
+        let routingSetup = "";
+
+        if (isLaser) {
+            for(let i=1; i<=4; i++) {
+                const layer = document.getElementById(`p-laser-layer-${i}`).value;
+                const speed = document.getElementById(`p-laser-speed-${i}`).value;
+                const power = document.getElementById(`p-laser-power-${i}`).value;
+                if (layer || speed || power) {
+                    serializedBits.push(`LaserLayer|${layer}|${speed}|${power}`);
+                }
+            }
+        } else if (!is3D) {
+            const feedRate = document.getElementById('p-feed').value || "80";
+            routingSetup = `[IPM: ${feedRate}]`;
+            for(let i=1; i<=4; i++) {
+                const b = document.getElementById(`p-bit-${i}`).value;
+                if (b) serializedBits.push(`${b}||`); 
+                else serializedBits.push('');
+            }
+        }
+        
+        let data = {
+            item_type: 'Project Cut', workflow: wf, status: 'Pending', species: species, dimensions: `${l} x ${w} x ${t}`, customer_name: document.getElementById('p-customer').value || "", sale_price: parseFloat(document.getElementById('p-sale').value) || 0.0, board_feet: 0, machine_time: 0, cnc_file: document.getElementById('p-cnc').value, due_date: document.getElementById('p-due').value, date_created: document.getElementById('p-date-created').value, router_bits: serializedBits.join(','), notes: `${document.getElementById('p-notes').value} ${routingSetup}`.trim(), photo: ""
+        };
+        await fetch('/api/add_item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        closeModal('project-modal');
+        loadSchedule();
+    }
+
+    async function deleteItem(id) {
+        if (confirm("Remove this project?")) { await fetch(`/api/delete_item/${id}`, { method: 'DELETE' }); loadSchedule(); }
+    }
+
+    async function loadSchedule() {
+        const response = await fetch('/api/items?t=' + new Date().getTime());
+        const items = await response.json();
+        
+        window.inventoryItems = items; 
+        
+        const customers = [...new Set(items.map(i => i.customer_name).filter(n => n && n.trim() !== ''))].sort();
+        let datalist = document.getElementById('customer-list');
+        if (!datalist) {
+            datalist = document.createElement('datalist');
+            datalist.id = 'customer-list';
+            document.body.appendChild(datalist);
+        }
+        datalist.innerHTML = customers.map(c => `<option value="${c}">`).join('');
+
+        renderCalendar();              
+
+        const stockCount = items.filter(i => i.item_type === 'Stock').length;
+        document.getElementById('total-count').innerText = `${stockCount} Boards`;
+
+        const allProjects = items.filter(i => i.item_type === 'Project Cut').sort((a,b) => new Date(a.due_date || '9999-12-31') - new Date(b.due_date || '9999-12-31'));
+        const activeProjects = allProjects.filter(p => p.status !== 'Completed' && p.status !== 'Shipped' && p.status !== 'Inactive');
+        const completedProjects = allProjects.filter(p => p.status === 'Completed' || p.status === 'Shipped');
+
+        document.getElementById('active-cnc').innerText = `${activeProjects.length} Active`;
+        
+        const activeHours = activeProjects.reduce((sum, p) => sum + (parseFloat(p.board_feet) || 0) + (parseFloat(p.machine_time) || 0), 0);
+        document.getElementById('total-workload').innerText = formatTime(activeHours);
+
+        const completedHours = completedProjects.reduce((sum, p) => sum + (parseFloat(p.board_feet) || 0) + (parseFloat(p.machine_time) || 0), 0);
+        document.getElementById('completed-stats').innerText = `${completedProjects.length} Proj | ${formatTime(completedHours)}`;
+
+        drawTable();
+    }
+
+    function drawTable() {
+        const tbody = document.getElementById('schedule-table');
+        const emptyMsg = document.getElementById('empty-msg');
+        
+        const allProjects = window.inventoryItems.filter(i => i.item_type === 'Project Cut' && i.status !== 'Completed' && i.status !== 'Shipped' && i.status !== 'Inactive');
+
+        if (allProjects.length === 0) {
+            tbody.innerHTML = '';
+            emptyMsg.classList.remove('hidden');
+            return;
+        }
+
+        let items = [...allProjects];
+
+        // Sort Logic
+        items.sort((a, b) => {
+            let v1 = a[sortKey] || '';
+            let v2 = b[sortKey] || '';
+            if (typeof v1 === 'string') v1 = v1.toLowerCase();
+            if (typeof v2 === 'string') v2 = v2.toLowerCase();
+
+            if (v1 < v2) return sortDesc ? 1 : -1;
+            if (v1 > v2) return sortDesc ? -1 : 1;
+            return 0;
+        });
+
+        // Filter Logic
+        const input = document.getElementById("searchInput").value.toUpperCase();
+        if (input) {
+            items = items.filter(i => {
+                const combined = `${i.id} ${i.item_type} ${i.status} ${i.species} ${i.cnc_file} ${i.customer_name} ${i.notes} ${i.due_date} ${i.date_created}`.toUpperCase();
+                return combined.includes(input);
+            });
+        }
+
+        if (items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-500 uppercase tracking-widest">No matches found for "${input}"</td></tr>`;
+            emptyMsg.classList.add('hidden');
+            return;
+        }
+
+        emptyMsg.classList.add('hidden');
+
+        // Render HTML
+        tbody.innerHTML = items.map(item => {
+            
+            let bitsHtml = '';
+            if (item.router_bits && item.router_bits.replace(/,/g, '') !== '') {
+                const rawBits = item.router_bits.split(',').filter(b=>b.trim()!=='');
+                if (rawBits[0].startsWith('LaserLayer|')) {
+                    bitsHtml = `<div class="mt-2 text-[10px] font-bold text-rose-400 tracking-widest uppercase">LASER LAYERS: ${rawBits.length} SET</div>`;
+                } else if (rawBits[0].startsWith('Laser|')) {
+                    bitsHtml = `<div class="mt-2 text-[10px] font-bold text-rose-400 tracking-widest uppercase">LASER: ENABLED</div>`;
+                } else {
+                    bitsHtml = `<div class="mt-2 text-[10px] font-bold text-slate-300 tracking-widest uppercase">BITS: ${rawBits.join(' | ')}</div>`;
+                }
+            }
+
+            return `
+            <tr class="border-b border-slate-700/50 hover:bg-slate-700 transition-colors cursor-pointer" onclick="window.location.href='/project/${item.id}'">
+                <td class="px-4 py-3">
+                    ${item.photo ? `<div class="relative w-24 h-16 rounded overflow-hidden border border-slate-600 ruler-overlay"><img src="${item.photo}" class="w-full h-full object-cover"></div>` : (item.notes && item.notes.includes('[Photo: /') ? `<div class="relative w-24 h-16 rounded overflow-hidden border border-slate-600 ruler-overlay"><img src="${item.notes.split('[Photo: ')[1].split(']')[0]}" class="w-full h-full object-cover"></div>` : '<span class="text-slate-600 text-xs font-bold tracking-widest">NO PHOTO</span>')}
+                </td>
+                <td class="px-4 py-3 font-bold text-wood">${item.due_date || 'No Date'}</td>
+                <td class="px-4 py-3 font-bold text-blue-400 uppercase tracking-widest">
+                    ${item.customer_name || '-'}
+                    ${item.date_created ? `<br><span class="text-[10px] font-normal text-slate-500 tracking-widest mt-1 inline-block">CREATED: ${item.date_created}</span>` : ''}
+                </td>
+                <td class="px-4 py-3 font-bold text-slate-200">
+                    ${item.cnc_file || 'Unnamed'}<br>
+                    <span class="text-[10px] text-slate-500 font-normal tracking-widest uppercase mt-1 inline-block">PRJ-${item.id}</span>
+                </td>
+                <td class="px-4 py-3 text-slate-300 font-semibold">
+                    ${item.species || '-'}
+                    <br><span class="text-amber-400 text-[11px] font-bold tracking-widest uppercase mt-2 inline-block bg-slate-900 border border-slate-700 px-2 py-1 rounded shadow-sm">${item.dimensions || '-'}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-slate-400 leading-relaxed max-w-[250px] break-words whitespace-pre-wrap">
+                    <div class="mb-2 flex gap-1">
+                        <span title="Design" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_design === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-600 border border-slate-700'}">DSN</span>
+                        <span title="Prep" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_prep === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-600 border border-slate-700'}">PRP</span>
+                        <span title="Carve" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_carve === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-600 border border-slate-700'}">CRV</span>
+                        <span title="Finish" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${item.step_finish === 'Done' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800' : (item.step_finish === 'In Progress' ? 'bg-yellow-900/50 text-yellow-500 border border-yellow-800' : 'bg-slate-800 text-slate-600 border border-slate-700')}">FIN</span>
+                    </div>
+                    ${item.notes || '-'}
+                    ${bitsHtml}
+                    <br><span class="text-slate-500 font-bold mt-2 inline-block uppercase tracking-wider">MACH: ${formatTime(item.machine_time)} | SHOP: ${formatTime(item.board_feet)}</span>
+                </td>
+                <td class="px-4 py-3 align-middle relative">
+                    <button onclick="toggleRowMenu(event, ${item.id})" class="bg-slate-800 hover:bg-slate-600 border border-slate-600 text-slate-300 px-4 py-2 rounded text-xs font-bold w-28 mx-auto uppercase tracking-wider transition-colors flex justify-between items-center shadow-sm">
+                        Actions <span class="text-[10px]">▼</span>
+                    </button>
+                    <div id="row-menu-${item.id}" class="hidden absolute right-8 top-12 w-36 bg-slate-800 rounded border border-slate-600 shadow-2xl z-50 flex flex-col py-1 overflow-hidden">
+                        <button onclick="event.stopPropagation(); window.location.href='/project/${item.id}'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors uppercase tracking-wider flex items-center gap-2">✏️ Edit</button>
+                        ${item.status !== 'Ready for Pickup' && item.status !== 'Completed' && item.status !== 'Shipped' && item.status !== 'Inactive' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Ready for Pickup')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-fuchsia-400 transition-colors uppercase tracking-wider flex items-center gap-2">🛍️ For Pickup</button>` : ''}
+                        ${item.status !== 'Inactive' && item.status !== 'Completed' && item.status !== 'Shipped' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Inactive')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-slate-400 transition-colors uppercase tracking-wider flex items-center gap-2">⏸️ Pause Project</button>` : ''}
+                        ${item.status === 'Inactive' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Pending')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-yellow-500 transition-colors uppercase tracking-wider flex items-center gap-2">▶️ Activate</button>` : ''}
+                        <button onclick="event.stopPropagation(); cloneItem(${item.id})" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2">📋 Clone</button>
+                        ${item.status !== 'Completed' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Completed')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-emerald-400 transition-colors uppercase tracking-wider flex items-center gap-2">✅ Complete</button>` : ''}
+                        ${item.status !== 'Shipped' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Shipped')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2">📦 Shipped</button>` : ''}
+                        ${item.status !== 'Pending' && item.status !== 'In Progress' && item.status !== 'Inactive' && item.status !== 'Ready for Pickup' ? `<button onclick="event.stopPropagation(); completeItem(${item.id}, 'Pending')" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-yellow-500 transition-colors uppercase tracking-wider flex items-center gap-2">🔄 Reopen</button>` : ''}
+                        ${item.status !== 'Completed' && item.status !== 'Shipped' ? `<button onclick="event.stopPropagation(); window.location.href='/timer/${item.id}'" class="text-left px-4 py-3 hover:bg-slate-700 text-xs font-bold text-blue-400 transition-colors uppercase tracking-wider flex items-center gap-2">⏱️ Timer</button>` : ''}
+                        <div class="border-t border-slate-700 my-1"></div>
+                        <button onclick="event.stopPropagation(); deleteItem(${item.id})" class="text-left px-4 py-3 hover:bg-red-900/50 hover:text-red-300 text-xs font-bold text-red-400 transition-colors uppercase tracking-wider flex items-center gap-2">🗑️ Delete</button>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }).join('');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block subtitle %}Project Media Library{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto bg-panel p-6 md:p-10 rounded-lg border border-slate-700 shadow-xl">
+    <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between border-b border-slate-700 pb-5 mb-6 gap-4">
+        <div>
+            <h2 class="text-xl font-bold text-slate-200 uppercase tracking-widest">Media <span class="text-wood">Library</span></h2>
+            <p class="text-xs text-slate-400 mt-1">All uploaded project photos, reference files, artwork, and CAD designs</p>
+        </div>
+        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <select id="tagFilter" onchange="filterMedia()" class="p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 text-xs uppercase font-bold focus:outline-none focus:border-wood">
+                <option value="ALL">All File Types</option>
+                <option value="Main Photo">Main Photos</option>
+                <option value="Aspire">Aspire CAD Files (.crv)</option>
+                <option value="LightBurn File">LightBurn Files (.lbrn)</option>
+                <option value="Reference File">Reference Files</option>
+                <option value="Artwork File">Artwork Files</option>
+            </select>
+            <input type="text" id="mediaSearch" onkeyup="filterMedia()" placeholder="Search project or customer..." class="p-3 bg-slate-900 rounded border border-slate-700 text-slate-300 w-full md:w-64 focus:outline-none focus:border-wood text-sm">
+        </div>
+    </div>
+
+    <!-- Standalone Direct Upload Bar -->
+    <div class="bg-slate-900 p-4 rounded-lg border border-slate-700 mb-8 flex flex-col md:flex-row gap-3 items-stretch md:items-center shadow-inner">
+        <input type="file" id="standalone-upload-file" accept="image/*, application/pdf, .crv, .crv3d, .lbrn, .lbrn2" class="w-full md:w-1/4 p-2.5 bg-slate-950 rounded border border-slate-700 text-slate-400 text-sm font-bold">
+        <select id="standalone-upload-tag" class="w-full md:w-1/4 p-2.5 bg-slate-950 rounded border border-slate-700 text-white text-sm font-bold uppercase">
+            <option value="Artwork File">Artwork File</option>
+            <option value="Reference File">Reference File</option>
+            <option value="LightBurn File">LightBurn File</option>
+            <option value="Aspire File (Final)">Aspire File (Final)</option>
+        </select>
+        <input type="text" id="standalone-file-name" placeholder="File Name / Description" class="w-full md:w-1/4 p-2.5 bg-slate-950 rounded border border-slate-700 text-white text-sm font-bold">
+        <button onclick="uploadStandaloneFile(event)" class="w-full md:w-1/4 bg-wood hover-bg-wood border border-wood text-slate-900 px-6 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors shadow">Upload Asset</button>
+    </div>
+
+    <div id="media-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <!-- Media cards injected dynamically -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allMediaItems = [];
+
+    async function loadMediaLibrary() {
+        const res = await fetch('/api/items?t=' + new Date().getTime());
+        const items = await res.json();
+        
+        allMediaItems = [];
+        
+        items.forEach(item => {
+            const fileLabel = item.cnc_file || item.species || 'Project';
+            const customerName = item.customer_name || '';
+            const searchString = `PRJ-${item.id} ASSET-${item.id} ${fileLabel} ${customerName}`.toUpperCase();
+            
+            let mainPhoto = item.photo;
+            if (!mainPhoto && item.notes && item.notes.includes('[Photo: /')) {
+                mainPhoto = item.notes.split('[Photo: ')[1].split(']')[0];
+            }
+            if (mainPhoto) {
+                allMediaItems.push({ 
+                    url: mainPhoto, 
+                    displayTitle: fileLabel, 
+                    customer: customerName, 
+                    type: 'Main Photo', 
+                    id: item.id, 
+                    item_type: item.item_type,
+                    searchString: searchString 
+                });
+            }
+
+            if (item.reference_images) {
+                const refs = item.reference_images.split(',').filter(r => r.trim() !== '');
+                refs.forEach(ref => {
+                    let url = ref;
+                    let tag = 'Reference File';
+                    if (ref.includes('|')) {
+                        const parts = ref.split('|');
+                        url = parts[0];
+                        tag = parts[1];
+                    }
+                    allMediaItems.push({ 
+                        url: url, 
+                        displayTitle: fileLabel, 
+                        customer: customerName, 
+                        type: tag, 
+                        id: item.id, 
+                        item_type: item.item_type,
+                        searchString: searchString 
+                    });
+                });
+            }
+        });
+
+        // Reverse to show newest first
+        renderMediaGrid(allMediaItems.reverse());
+    }
+
+    async function uploadStandaloneFile(event) {
+        const fileInput = document.getElementById('standalone-upload-file');
+        const tagSelect = document.getElementById('standalone-upload-tag').value;
+        const fileNameInput = document.getElementById('standalone-file-name').value || 'Standalone Media Asset';
+
+        if (!fileInput.files || !fileInput.files[0]) { alert("Please select a file to upload."); return; }
+
+        const fileObj = fileInput.files[0];
+        const btn = event.target;
+        btn.innerText = "UPLOADING...";
+        btn.disabled = true;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            // 1. Upload the file to the server via your existing endpoint
+            const res = await fetch('/api/upload_image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ photo: e.target.result, filename: fileObj.name })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // 2. Save it as a Standalone record in the database
+                const todayStr = new Date().toISOString().split('T')[0];
+                const addRes = await fetch('/api/add_item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        item_type: 'Standalone Media',
+                        status: 'Completed',
+                        cnc_file: fileNameInput,
+                        reference_images: `${data.url}|${tagSelect}`,
+                        date_created: todayStr
+                    })
+                });
+
+                if (addRes.ok) {
+                    fileInput.value = '';
+                    document.getElementById('standalone-file-name').value = '';
+                    loadMediaLibrary();
+                } else {
+                    alert("Database error: Could not save the record.");
+                }
+            } else {
+                alert("Upload failed.");
+            }
+            btn.innerText = "UPLOAD ASSET";
+            btn.disabled = false;
+        };
+        reader.readAsDataURL(fileObj);
+    }
+
+    async function deleteStandaloneAsset(id) {
+        if (confirm("Are you sure you want to delete this standalone asset?")) {
+            await fetch(`/api/delete_item/${id}`, { method: 'DELETE' });
+            loadMediaLibrary();
+        }
+    }
+
+    function filterMedia() {
+        const query = document.getElementById('mediaSearch').value.toUpperCase();
+        const selectedTag = document.getElementById('tagFilter').value;
+
+        const filtered = allMediaItems.filter(m => {
+            const matchesQuery = m.searchString.includes(query);
+            let matchesTag = (selectedTag === 'ALL');
+            if (selectedTag === 'Aspire') matchesTag = m.type.includes('Aspire');
+            else if (selectedTag !== 'ALL') matchesTag = (m.type === selectedTag);
+            
+            return matchesQuery && matchesTag;
+        });
+
+        renderMediaGrid(filtered);
+    }
+
+    function renderMediaGrid(items) {
+        const grid = document.getElementById('media-grid');
+        if (items.length === 0) {
+            grid.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 uppercase tracking-widest text-xs">No media files found</div>`;
+            return;
+        }
+
+        grid.innerHTML = items.map(m => {
+            const urlLower = m.url.toLowerCase();
+            const isPdf = urlLower.endsWith('.pdf');
+            const isAspire = urlLower.endsWith('.crv') || urlLower.endsWith('.crv3d');
+            const isLightburn = urlLower.endsWith('.lbrn') || urlLower.endsWith('.lbrn2');
+
+            let preview = '';
+            if (isAspire) {
+                preview = `<div class="w-full h-40 flex flex-col items-center justify-center bg-slate-950 text-amber-500 font-bold text-xs uppercase border border-amber-800"><span class="text-4xl mb-2">⚙️</span>ASPIRE CAD FILE</div>`;
+            } else if (isLightburn) {
+                preview = `<div class="w-full h-40 flex flex-col items-center justify-center bg-slate-950 text-rose-500 font-bold text-xs uppercase border border-rose-800"><span class="text-4xl mb-2">🔥</span>LIGHTBURN FILE</div>`;
+            } else if (isPdf) {
+                preview = `<div class="w-full h-40 flex flex-col items-center justify-center bg-slate-900 text-wood font-bold text-xs uppercase border-b border-slate-600"><span class="text-4xl mb-2">📄</span>PDF DOCUMENT</div>`;
+            } else {
+                preview = `<img src="${m.url}" class="w-full h-40 object-cover hover:opacity-75 transition-opacity">`;
+            }
+
+            let tagColor = 'text-wood bg-red-950/60 border-red-900';
+            if (m.type === 'Artwork File') tagColor = 'text-purple-400 bg-purple-950/60 border-purple-800';
+            if (m.type === 'Reference File') tagColor = 'text-blue-400 bg-blue-950/60 border-blue-800';
+            if (m.type.includes('Aspire')) tagColor = 'text-amber-400 bg-amber-950/60 border-amber-800';
+            if (m.type === 'LightBurn File') tagColor = 'text-rose-400 bg-rose-950/60 border-rose-800';
+
+            const isStandalone = m.item_type === 'Standalone Media';
+            const displayId = isStandalone ? `ASSET-${m.id}` : `PRJ-${m.id}`;
+            const customerDisplay = m.customer ? m.customer : (isStandalone ? 'Direct Upload' : 'No Customer');
+
+            return `
+            <div class="bg-slate-900 rounded-lg overflow-hidden border border-slate-700 shadow-md flex flex-col justify-between group">
+                <a href="${m.url}" download target="_blank" class="block relative overflow-hidden bg-slate-950 border-b border-slate-700">
+                    ${preview}
+                </a>
+                <div class="p-4 flex flex-col gap-2 flex-grow justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${displayId}</span>
+                            <span class="text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${tagColor}">${m.type}</span>
+                        </div>
+                        <h4 class="text-white font-bold text-sm truncate">${m.displayTitle}</h4>
+                        <p class="${isStandalone ? 'text-slate-500' : 'text-blue-400'} text-[10px] font-bold uppercase tracking-wider truncate mt-0.5">${customerDisplay}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-2 border-t border-slate-800 pt-3">
+                        <a href="${m.url}" download class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 py-2 rounded text-[10px] font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1">💾 Download</a>
+                        ${isStandalone 
+                            ? `<button onclick="deleteStandaloneAsset(${m.id})" class="w-full bg-red-900/50 hover:bg-red-800 border border-red-800 text-red-400 py-2 rounded text-[10px] font-bold uppercase tracking-wider transition-colors">🗑️ Delete</button>`
+                            : `<button onclick="window.location.href='/project/${m.id}'" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 py-2 rounded text-[10px] font-bold uppercase tracking-wider transition-colors">Project</button>`
+                        }
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    loadMediaLibrary();
+</script>
+{% endblock %}
