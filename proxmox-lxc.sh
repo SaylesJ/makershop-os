@@ -35,7 +35,7 @@ sleep 10 # Give DHCP a few seconds to assign an IP
 # 5. Execute the installation inside the new container
 echo "Installing MakerShop OS inside the container..."
 # NOTE: Replace YourUsername below with your actual GitHub username
-pct exec $CTID -- bash -c "apt-get update && apt-get install -y git sudo && git clone https://github.com/YourUsername/makershop-os.git /opt/makershop-os && cd /opt/makershop-os && chmod +x install.sh && ./install.sh"
+pct exec $CTID -- bash -c "apt-get update && apt-get install -y git sudo && git clone https://github.com/SaylesJ/makershop-os.git /opt/makershop-os && cd /opt/makershop-os && chmod +x install.sh && ./install.sh"
 
 # 6. Retrieve the IP address and display it
 IP=$(pct exec $CTID -- hostname -I | awk '{print $1}')
